@@ -1,0 +1,20 @@
+{
+  "name": "js13kgames2023-13drums",
+  "version": "1.0.0",
+  "description": "A js13kgames 2023 entry. Explore the Americas in the 13th Century, gathering resources and learning skills, and collect all 13 drums.",
+  "main": "dev.js",
+  "scripts": {
+    "start": "node dev.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "js13kgames"
+  ],
+  "author": "Justin Sullard",
+  "license": "ISC",
+  "devDependencies": {
+    "static-server": "^2.2.1",
+    "uglify-js": "^3.17.4",
+    "yazl": "^2.5.1"
+  }
+}
