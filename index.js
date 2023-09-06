@@ -1046,7 +1046,6 @@ MAKE("FLOWER",[
     ["BLOOM",false]
 ], {
     GENERATE(p){
-        // const b = (p + 28 - this.PHASE)%28 < 3;
         const b = this.BLOOM;
         this.TV = this.TV ?? TILE(this.WIDTH * PXL * 4, this.HEIGHT * PXL * 4);
         const xo = rand.BIAS()/4;
@@ -1081,8 +1080,7 @@ MAKE("FLOWER",[
         if (p !== this.LAST && h >= 0.5) {
             this.LAST = p;
             const b = (p + 28 - this.PHASE)%28 < 3;
-            if (!b && this.TV) { return this; }
-            // this.BLOOM=true;
+            this.BLOOM = b;
             this.GENERATE(p);
         }
         return this;
@@ -1435,7 +1433,14 @@ const MAIN = (t = 0) => {
     if (DEBUG) {
         TV.DO(() => {
             // EACH(MAP([PLAYER, ...world.ENTITIES], e=>e.PROJECT()),([x,y,z]) => TV.P().A(x,y,abs(z)).C().W("#f00", 1));
-            EACH([PLAYER, ...world.ENTITIES, ...world.LANDSCAPE],x => TV.WP("#f00",1,x.CLICKAREA()));
+            EACH([PLAYER, ...world.ENTITIES, ...world.LANDSCAPE],x => {
+                const p = x.CLICKAREA();
+                if (TV.ctx.isPointInPath(p, MOUSE.x, MOUSE.y)) {
+                    TV.ctx.setLineDash([13,7]);
+                    TV.ctx.lineDashOffset = now/1000*20;
+                    TV.WP("#280", 1, p);
+                }
+            });
             // grid lines
             TV.P().M(0, 2 * H3).L(W1, 2 * H3).M(W2, 0).L(W2, H1).M(0, H2).L(W1, H2).W("#0f0", 0.125);
             TV.ctx.fillStyle = "#0f0";
