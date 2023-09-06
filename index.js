@@ -5,21 +5,21 @@ let BPM = 500;
 // That's 18 meausre
 let DAY = 144000;
 let D = 0;
-let DATE = 0;
+// let DATE = 0;
 let HOUR = 0;
 let TCK = 0;
 let LAST = 0;
 let measure = 0;
 let beat = 0;
 let bar = 0;
-let step = 0;
+// let step = 0;
 
 let PAUSED = true;
 let RATE = 1;
 let PXL = 32;
 
 // Utilities
-const { cos, sin, min, max, sqrt, pow, floor, ceil, round, imul, abs, PI, sign, atan2 } = Math;
+const { cos, sin, min, max, sqrt, floor, ceil, round, imul, abs, PI, sign } = Math;
 const STRIPE = (l = 0, fn = x => x) => new Array(l).fill(0).map((x, i) => i).map(fn);
 const ROT = ([x, y], a) => [x * cos(a) - y * sin(a), x * sin(a) + y * cos(a)];
 const MOVE = ([x, y, z], [w, h, d]) => [x + w, y + h, z + d];
@@ -91,7 +91,7 @@ const RISEFALL = (h) => {
 // const SKYPATH = (h, w) => (EIOS(OF(h, 0.5)) * 2 - 1) * w;
 const SKYPATH = (h) => (EIOS(OF(h, 0.5)) * 2 - 1);
 
-const LERP = (t, a, b) => a + (a - b) * t;
+// const LERP = (t, a, b) => a + (a - b) * t;
 // const LERPE = (p, a, b) => MAP(p, t=>LERP(t, a, b));
 const _WALK = t => [
     (min(2 * t, 0) - (1 - cos(t * CIRCLE))) / 2,
@@ -465,7 +465,6 @@ MAKE("ENT", [
     ["z", 0],
     ["age", 0],
     ["AREA", []],
-    ["REQUIRE",[]]
 ], {
     COPY() { return new this.constructor(...this) },
     MOVE(x) { [this.x, this.y, this.z] = MOVE(this,x); return this },
@@ -507,12 +506,32 @@ MAKE("ENT", [
     DRAW() {},
 }, "Array");
 
+MAKE("DRUM", [
+    ["ICON",null],
+    ["OK",[]],
+    ["DO",()=>{}]
+]);
+
+// FIRE = HOUR > 0.5 && READY ? DRUM : ACCEPT
+
+
+// STONE => REMOVE + STONE
+// GRASS => SHRINK + GRASS
+// BUSH => SHRINK + STICK
+// FLOWER => SHRINK + FLOWER
+// DEER => SLEEP + DEER
+// BISON => SLEEP + DEER
+// PINE => SHRINK + WOOD
+// OAK => SHRINK + WOOD
+
+
 MAKE("TASK", [
     ["TCK", 0],
     ["CHANGES", {}],
     ["TARGET",null],
     ["START", null],
-    ["STOP", null]
+    ["STOP", null],
+    ["UPDATE",()=>{}]
 ],{},"Array")
 
 const IDLE = { w: 0, a: 0, s: 0, d: 0 };
@@ -1020,29 +1039,32 @@ MAKE("PINE",[
 MAKE("FLOWER",[
     ["TV", null],
     ["PHASE", 0],
-    ["COLOR","#373"],
+    ["COLOR","#263"],
     ["LAST", -1],
     ["WIDTH", 4],
-    ["HEIGHT", 2],
+    ["HEIGHT", 4],
+    ["BLOOM",false]
 ], {
-    GENERATE(){
-        const b = abs((moon.PHASE + 28 - this.PHASE)%28) < 3;
+    GENERATE(p){
+        // const b = (p + 28 - this.PHASE)%28 < 3;
+        const b = this.BLOOM;
         this.TV = this.TV ?? TILE(this.WIDTH * PXL * 4, this.HEIGHT * PXL * 4);
-        this.TV.E();
+        const xo = rand.BIAS()/4;
+        const y = b ? -2 : -1.5;
+        const yo = rand()/8;
+        const Y = y+yo;
         this.TV.DO((tv) => {
-            // tv.ctx.fillStyle="#f00";
-            // tv.ctx.fillRect(0,0,8,8);
-            // tv.ctx.fillRect(8,8,16,16);
-            // tv.ctx.fillRect(24,24,16,16);
-            tv.S(PXL, PXL).T(this.WIDTH / 2, this.HEIGHT)
-                // stem and leafs
-                .P().M(0,0).L(0, b ? -1 : -1).W(this.COLOR, 1/4)
-                .P().A(-1/4, -1/2 + rand.BIAS()/8, (b ? 3/8 : 1/4))
-                .A(1/4, -1/2 + rand.BIAS()/8, (b ? 3/8 : 1/4))
-                .F(this.COLOR);
+            tv.E().S(PXL, PXL).T(this.WIDTH / 2, this.HEIGHT)
+                .P().M(-1.5-xo,0).B(-2.5,-3, -1,-3, xo,-2+yo).B(1,-3, 2.5,-3, 1.5+xo,0).C().F(this.COLOR)
+                .P().M(0,0).B(-xo*2,-yo, xo*4,Y, xo,Y).W("#0002",1/8);
             // Bloom
-            tv.P().A(0, (b ? -1.25 : -1) + rand()/8, b ? 1/2 : 1/8)
+            tv.P().A(xo, Y, b ? 3/4 : 1/8)
             .F(`hwb(${round((180/28 * this.PHASE + 240 + rand.BIAS()/4)%360)} ${round(10 + rand()*25)}% 5%)`)
+            if (this.BLOOM) {
+                const m = PUT(new MOON(),{RADIUS:10,PHASE:this.PHASE,COLOR:"#000",STROKE:"#fff0"});
+                tv.O(0.25).T(xo, Y).S(1/16,1/16);
+                m.DRAW(tv);
+            }
         });
         return this;
     },
@@ -1054,14 +1076,31 @@ MAKE("FLOWER",[
         });
         return this;
     },
-    UPDATE() {
-        if (moon.PHASE !== this.LAST && HOUR >= 0.5) {
-            this.GENERATE();
-            this.LAST = moon.PHASE;
+    UPDATE(d, _p, _h) {
+        const p = _p ?? moon?.PHASE, h = _h ?? HOUR;
+        if (p !== this.LAST && h >= 0.5) {
+            this.LAST = p;
+            const b = (p + 28 - this.PHASE)%28 < 3;
+            if (!b && this.TV) { return this; }
+            // this.BLOOM=b;
+            this.BLOOM=true;
+            this.GENERATE(p);
         }
         return this;
     },
+    CAN() {
+        return this.BLOOM;
+    },
+    INTERACT() {
+        const f = PUT(this.COPY(), { TV: null });
+        PLAYER.INVENTORY.push(f.GENERATE());
+        this.BLOOM;
+    }
 }, "ENT");
+
+MAKE("FIRE",[], {
+
+}, "ENT")
 
 MAKE("WORLD", [
     ["SEED", 13],
@@ -1115,7 +1154,7 @@ MAKE("WORLD", [
                     this.LANDSCAPE.push(e);
                 }
             });
-            const f = PUT(new FLOWER(), { x:x.x, y:x.y, PHASE:i }).GENERATE();
+            const f = PUT(new FLOWER(), { x:x.x, y:x.y, PHASE: i }).UPDATE(0,0,0.5);
             x.LANDSCAPE.push(f);
             this.LANDSCAPE.push(f);
         });
@@ -1258,8 +1297,8 @@ let PLAYER = PUT(new PERSON(), { x: 0, y: 104, z: 0, shell, ORIENTATION: -1, COL
 let MOUSE = new ENT();
 MOUSE.PATH = PATH().M(-2,-2).L(2,2).L(-2,2).L(2,-2).C();
 
-// let world = new WORLD().GENERATE(13);
-let world = new WORLD().GENERATE(Date.now());
+let world = new WORLD().GENERATE(13);
+// let world = new WORLD().GENERATE(Date.now());
 
 // let ground = STRIPE(11, y => new AREA().MOVE(y ? [0, -64, (1 - EHSIN(OF(y-1,9))) * 32 - 16] : [0, 0, 0]).ROT((y-0.5) * PIZZA[10]));
 let entities = [

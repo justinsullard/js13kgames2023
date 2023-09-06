@@ -22,14 +22,36 @@ const build = async () => {
         let { error, code, ...other } = minify(adjusted, { mangle: { toplevel: true, properties: false } });
         if (error) { throw error; }
 
-        const allTokens = code
-            .match(/\b(\d+(?:\.\d+)? *\/ *\d+(?:\.\d+)?|\d+(?:\.\d+)?|(?<=[. ])[a-z_]\w+)\b/gm)
-            .map(x=>x.replace(/ +/g,""))
-            .sort()
-            .reduce((r, k) => ({ ...r, [k]:(r[k] ?? 0)+1 }), {});
+        // LOOK FOR POSSIBLE REPLACEMENT TOKENS
+        // const allTokens = code
+        //     .match(/\b(\d+(?:\.\d+)? *\/ *\d+(?:\.\d+)?|\d+(?:\.\d+)?|(?<=[. ])[a-z_]\w+)\b/gm)
+        //     .map(x=>x.replace(/ +/g,""))
+        //     .sort()
+        //     .reduce((r, k) => ({ ...r, [k]:(r[k] ?? 0)+1 }), {});
+        // console.log("All possible replacement tokens", allTokens);
 
+        // CUSTOM RENAMING OF UPPERCASE TOKENS
         const tokens = [...new Set(code.match(/(?<![$.]])\b(?<!\[])[A-Z][A-Z0-9]+(?!\])\b/gm))].filter(x => !IGNORE.includes(x)).sort().reverse();
         tokens.forEach((t, i) => code = code.replace(new RegExp(`\\b${t}\\b`, "gm"), () => `$${i.toString(16).toUpperCase()}`));
+
+        // CUSTOM PROPERTY REPLACEMENT TOKENS       
+        // const props = [
+        //     'filter',
+        //     'createOscillator',
+        //     'createGain',
+        //     'createStereoPanner',
+        //     'frequency',
+        //     'exponentialRampToValueAtTime',
+        //     'connect',
+        //     'destination',
+        //     'currentTime',
+        //     'createElement'
+        // ];
+        // props.forEach((p,i) => {
+        //     code.replace(new RegExp("\\.${p}","gm"), `[P${i}]`);
+        // });// console.log(`Found tokens`, vars);
+        // code = `const ${props.map((p,i)=>`P${i}='${p}'`).join(",")};${code}`;
+
         code = `(()=>{${code}})()`;
 
         await writeFile("./index.min.js", code, "utf8");
@@ -37,6 +59,7 @@ const build = async () => {
         const final = html
             .replace(/\n/g, "")
             .replace(/<script.+\/script>/gm, `<script>${code}</script>`);
+        console.log(`${Buffer.byteLength(final, "utf8")} bytes minified`);
         const stream = new PassThrough();
         const zip = new yazl.ZipFile();
         zip.outputStream.pipe(stream);
