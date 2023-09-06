@@ -512,7 +512,7 @@ MAKE("DRUM", [
     ["DO",()=>{}]
 ]);
 
-// FIRE = HOUR > 0.5 && READY ? DRUM : ACCEPT
+// FIRE => HOUR > 0.5 && READY ? DRUM : ACCEPT
 
 
 // STONE => REMOVE + STONE
@@ -1082,8 +1082,7 @@ MAKE("FLOWER",[
             this.LAST = p;
             const b = (p + 28 - this.PHASE)%28 < 3;
             if (!b && this.TV) { return this; }
-            // this.BLOOM=b;
-            this.BLOOM=true;
+            // this.BLOOM=true;
             this.GENERATE(p);
         }
         return this;
