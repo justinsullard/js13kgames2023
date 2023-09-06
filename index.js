@@ -12,7 +12,7 @@ let LAST = 0;
 let measure = 0;
 let beat = 0;
 let bar = 0;
-// let step = 0;
+let step = 0;
 
 let PAUSED = true;
 let RATE = 1;
@@ -112,8 +112,8 @@ const WALK = t => _WALK(t);
 // ]
 
 // randomization
-const RANDO = (seed = 0) => {
-    let a = seed | 0;
+const RANDO = (SEED = 0) => {
+    let a = SEED | 0;
     let = fn = () => {
         a = a + 0x9e3779b9 | 0;
         let t = a ^ a >>> 16;
@@ -123,14 +123,21 @@ const RANDO = (seed = 0) => {
         return ((t = t ^ t >> 15) >>> 0) / 4294967296 * 2;
     };
     return PUT(fn, {
-        seed: (x) => x !== undefined ? a = x | 0 : a,
+        SEED: (x) => x !== undefined ? a = x | 0 : a,
         INT: (n = 1) => round(fn() * n),
         BIAS: () => 1 - fn() * 2,
         sign: () => ZCEIL(fn.BIAS()),
         bit: () => round(fn()),
         bool: () => !!round(fn()),
-        shuffle: (x) => x.slice().sort(fn.BIAS),
-        pick: (x) => x[ZFLOOR(fn() * x.length)],
+        SHUFFLE: (x) => x.slice().sort(fn.BIAS),
+        PICK: (x) => x[ZFLOOR(fn() * x.length)],
+        DO: (s, f) => {
+            const o = a;
+            a = (s ?? a) | 0;
+            f();
+            a = o;
+            return s ?? o;
+        },
     })
 };
 
@@ -167,13 +174,13 @@ const SOUNDTRACK = () => {
     return [
         [Q[0], 0.4, 0, [0, 3, 8, 11, 14]],
         ...STRIPE(13, (i) => {
-            let q = rand.pick(a);
+            let q = rand.PICK(a);
             a = a.filter(x => x !== q);
             return [q, rand() * 0.2, rand.BIAS(), SONG(1 + rand.INT(), rand.INT(15))];
         })
     ];
 };
-const MELODY = () => [Q[0], ...rand.shuffle(Q.slice(1, 9))].slice(0, 8).map(x => x * 2);
+const MELODY = () => [Q[0], ...rand.SHUFFLE(Q.slice(1, 9))].slice(0, 8).map(x => x * 2);
 
 const AAH = (c, q, v, a, t, w = 6) => {//context, frequency, volume, angleOfPan, timeToPlay
     const o = c.createOscillator();
@@ -220,7 +227,7 @@ const BEAT = (c, q, v, a, t, l, b) => {//context, frequency, volume, angleOfPan,
     o.stop(t + 0.51);
 };
 const RATTLE = (c, q, a = 0, t) => {//context, frequency, volume, angleOfPan, timeToPlay, levelOverride, balanceOverride
-    // let q = rand.pick(Q.slice(1,6))*2;
+    // let q = rand.PICK(Q.slice(1,6))*2;
     let v = 0.05 + rand() * 0.03;
     let d = 1/8 + rand()/16;
     const o = c.createOscillator();
@@ -271,7 +278,7 @@ const SOUND = () => {
             c,
             (
                 TICK % 2
-                ? rand.pick(melody.slice(0,3))
+                ? rand.PICK(melody.slice(0,3))
                 : melody[7 - (beat + measure % 8)%8]
             )
             || Q[0],
@@ -465,6 +472,7 @@ MAKE("ENT", [
     ["z", 0],
     ["age", 0],
     ["AREA", []],
+    ["SEED",null]
 ], {
     COPY() { return new this.constructor(...this) },
     MOVE(x) { [this.x, this.y, this.z] = MOVE(this,x); return this },
@@ -956,7 +964,7 @@ MAKE("AREA", [
         const [l] = new ENT(-_r, -_r, 0).MOVE(this).PROJECT();
         const [r] = new ENT(_r, -_r, 0).MOVE(this).PROJECT();
         this.VISIBLE =  r <= 0 || l >= TV.W1 ? 0 : 1;
-        EACH(this.LANDSCAPE,x=>x.UPDATE?.(_));
+        EACH(this.LANDSCAPE,x=>x.UPDATE(_));
     },
     DRAW(tv) {
         if (!this.VISIBLE) { return; }
@@ -994,32 +1002,34 @@ MAKE("PINE",[
     ["TV", null],
     ["WIDTH",0],
     ["HEIGHT",0],
+    ["NEXT",0],
     ["COLOR", () => `hwb(${round(150 + rand.BIAS()*2)} ${round(7 + rand()*5)}% ${round(80 + rand.BIAS()*4)}%)`]
 ], {
     GENERATE(_){
-        const a = this.AGE = _ || this.AGE || rand()*4+3;
-        // const a = this.AGE;
-        const t = ceil(a);
-        let b = 0, mw = 0, x = 0;
-        this.PATH = STRIPE(t, i => {
-            const s = (a - i) / (a - i + 3);
-            const p = b - s / 0.125;
-            const w = s * (t-i);
-            const h = b + s + 0.5;
-            const c = OF(a-i,t);
-            // const n = STRIPE(5,()=>FIX(rand.BIAS() * s / 2));
-            const n = FIX(rand.BIAS()*c*s/2);
-            mw = max(w, mw);
-            const r = `M ${n} ${FIX(p)} L ${FIX(-w)} ${FIX(h)-rand()*c} L ${FIX(x)} ${FIX(b+0.25)} L ${FIX(w)} ${FIX(h)-rand()*c} L ${n} ${FIX(p)}`;
-            x = n;
-            b = p;
-            return r;
-        }).join(" ") + ` F ${this.COLOR} S #1218`; //" F #243 W #132 0.0625";
-        this.WIDTH = ceil(mw*2);
-        this.HEIGHT = ceil(abs(b));
-        this.TV = SCREEN({ WIDTH: this.WIDTH * PXL * 4, HEIGHT: this.HEIGHT * PXL * 4, os: true });
-        // console.log("Pine generating new image", this.PATH, this.WIDTH, this.HEIGHT, this.TV.CVS.WIDTH, this.TV.CVS.HEIGHT);
-        this.TV.DO((tv) => tv.S(PXL,PXL).T(this.WIDTH/2,this.HEIGHT).P(this.PATH));
+        this.SEED = rand.DO(this.SEED,() => {
+            const a = min(8, this.AGE = _ || this.AGE || rand()*4+3);
+            const t = ceil(a);
+            let b = 0, mw = 0, x = 0;
+            this.PATH = STRIPE(t, i => {
+                const s = (a - i) / (a - i + 3);
+                const p = b - s / 0.125;
+                const w = s * (t-i);
+                const h = b + s + 0.5;
+                const c = OF(a-i,t);
+                // const n = STRIPE(5,()=>FIX(rand.BIAS() * s / 2));
+                const n = FIX(rand.BIAS()*c*s/2);
+                mw = max(w, mw);
+                const r = `M ${n} ${FIX(p)} L ${FIX(-w)} ${FIX(h)-rand()*c} L ${FIX(x)} ${FIX(b+0.25)} L ${FIX(w)} ${FIX(h)-rand()*c} L ${n} ${FIX(p)}`;
+                x = n;
+                b = p;
+                return r;
+            }).join(" ") + ` F ${this.COLOR} S #1218`; //" F #243 W #132 0.0625";
+            this.WIDTH = ceil(mw*2);
+            this.HEIGHT = ceil(abs(b));
+            this.TV = SCREEN({ WIDTH: this.WIDTH * PXL * 4, HEIGHT: this.HEIGHT * PXL * 4, os: true });
+            // console.log("Pine generating new image", this.PATH, this.WIDTH, this.HEIGHT, this.TV.CVS.WIDTH, this.TV.CVS.HEIGHT);
+            this.TV.DO((tv) => tv.S(PXL,PXL).T(this.WIDTH/2,this.HEIGHT).P(this.PATH));    
+        });
         return this;
     },
     DRAW(tv) {
@@ -1030,16 +1040,19 @@ MAKE("PINE",[
         });
         return this;
     },
-    // UPDATE(_) {
-    //     const t = _/1000;
-    //     return this;
-    // },
+    UPDATE(_) {
+        this.NEXT = this.NEXT || 4 + rand.INT(284);
+        if (TCK >= this.NEXT) {
+            this.GENERATE(this.AGE + (rand()+1) / 8);
+            this.NEXT = TCK + 576;
+        }
+    },
 }, "ENT");
 
 MAKE("FLOWER",[
     ["TV", null],
     ["PHASE", 0],
-    ["COLOR","#263"],
+    ["COLOR",() => `hwb(${round(180 + rand.BIAS()*4)} ${round(30 + rand()*5)}% ${round(55 + rand.BIAS()*4)}%)`],
     ["LAST", -1],
     ["WIDTH", 4],
     ["HEIGHT", 4],
@@ -1060,8 +1073,10 @@ MAKE("FLOWER",[
             tv.P().A(xo, Y, b ? 3/4 : 1/8)
             .F(`hwb(${round((180/28 * this.PHASE + 240 + rand.BIAS()/4)%360)} ${round(10 + rand()*25)}% 5%)`)
             if (this.BLOOM) {
-                const m = PUT(new MOON(),{RADIUS:10,PHASE:this.PHASE,COLOR:"#000",STROKE:"#fff0"});
-                tv.O(0.25).T(xo, Y).S(1/16,1/16);
+                // const m = PUT(new MOON(),{RADIUS:10,PHASE:this.PHASE,COLOR:"#fff",STROKE:"#000a"});
+                const m = PUT(new MOON(),{RADIUS:10,PHASE:this.PHASE,COLOR:"#ccf",STROKE:"#000a"});
+                // ccf
+                tv.O(0.5).T(xo*1.25, Y).S(1/16,1/16);
                 m.DRAW(tv);
             }
         });
@@ -1117,8 +1132,8 @@ MAKE("WORLD", [
         this.MAP = this.MAP || SCREEN({ WIDTH: 256, HEIGHT: 256, os: true });
         this.FLOOR = this.FLOOR || SCREEN({ WIDTH: 256, HEIGHT: 256, os: true });
         this.SEED = s;
-        rand.seed(s);
-        console.log("Generating world and setting seed", s, rand.seed());
+        rand.SEED(s);
+        console.log("Generating world and setting SEED", s, rand.SEED());
         let R = 98; // radius of moons
         let r = 16;
         let z = r * 5.6; // radius of outer path
@@ -1162,7 +1177,7 @@ MAKE("WORLD", [
             // TODO: GENERATE TERRAIN
             // POPULATE WITH ENTITIES
             STRIPE(3,i=>{
-                // const v = new (rand.pick([PERSON,DEER,BISON]))().MOVE(
+                // const v = new (rand.PICK([PERSON,DEER,BISON]))().MOVE(
                 const v = new PERSON().MOVE(
                   x.COPY().MOVE(new ENT(0, 6 + rand.INT(6), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)))
                 )
