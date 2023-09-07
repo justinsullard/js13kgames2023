@@ -75,31 +75,31 @@ Initial utilities and decisions on possible game mechanics.
 
 Getting the basic walking animation for bipeds and quadrupeds was an important early step once the basic engine and utilities were in place.
 
-![First Walking Animation](./devlog.walking.2023-08-21 21-53.gif?raw=true)
+<img src="./devlog.walking.2023-08-21 21-53.gif">
 
 The backdrop Day/Night cycle, with a little animation, should make for a simple bit of early "polish" and allows for experimenting with various animations.
 
-![Early Sunrise Animation](devlog.sunrise.2023-08-21 22-11.gif?raw=true)
+<img src="./devlog.sunrise.2023-08-21 22-11.gif">
 
 ### 2023-08-27
 
 Initial ideas for having a "round" world using non-Euclidean perspective, featuring some random walks from the Bison and some initial movement controls.
 
-![Walking Controls](devlog.walking.2023-08-27 21-36.gif?raw=true)
+<img src="./devlog.walking.2023-08-27 21-36.gif">
 
 ### 2023-08-31
 
 Trying out a different approach to project a 2D world map into the 2.5D perspective seems to produce a rather decent effect, and projecting on top of this appears to be effective
 
-![World Movement](devlog.world.movement.2023-08-31 17-49.gif?raw=true)
+<img src="./devlog.world.movement.2023-08-31 17-49.gif">
 
 ### 
 Adding in some trees and villagers to start populating the world.
 
-![Landscape](devlog.landscape.2023-09-02 23-57.gif?raw=true)
+<img src="./devlog.landscape.2023-09-02 23-57.gif">
 
 ### 2023-09-06
 
 Added collection of Flowers and Wood from Trees, plus a basic inventory rendering. While not restricted to Drums, and without any limits on collection, the basic mechanics should provide most everything else needed for interactions (minus animations). One thing I have considered is what to do with items you might collect that are unnecessary. Some could be burned to the fire, but perhaps the villages or villagers should always accept items as a way to clear inventory and promote interaction.
 
-![Early Collection](devlog.collection.2023-09-06 20-45.gif?raw=true)
+<img src="devlog.collection.2023-09-06 20-45.gif">
