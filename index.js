@@ -131,6 +131,8 @@ const RANDO = (SEED = 0) => {
         bool: () => !!round(fn()),
         SHUFFLE: (x) => x.slice().sort(fn.BIAS),
         PICK: (x) => x[ZFLOOR(fn() * x.length)],
+        HWB: (h, hh, w, ww, b, bb) => `hwb(${round(h + fn.BIAS()*hh)} ${round(w + fn.BIAS()*ww)}% ${round(b + fn.BIAS()*bb)}%)`,
+        XY: (x,y,s=1) => [x+fn.BIAS()*s,y+fn.BIAS()*s],
         DO: (s, f) => {
             const o = a;
             a = (s ?? a) | 0;
@@ -276,12 +278,7 @@ const SOUND = () => {
         // RATTLE(c, melody[7 - (beat + measure % 8)%8] || Q[0], typeof a === "number" ? a : 0, c.currentTime);
         RATTLE(
             c,
-            (
-                TICK % 2
-                ? rand.PICK(melody.slice(0,3))
-                : melody[7 - (beat + measure % 8)%8]
-            )
-            || Q[0],
+            melody[7 - (beat + measure % 8)%8] || Q[0],
             typeof a === "number" ? a : 0,
             c.currentTime
         );
@@ -289,6 +286,10 @@ const SOUND = () => {
     ON("beat", () => {
         const [q, v, a, p] = track[0];
         BEAT(c, Q[14], v, a, c.currentTime);
+    });
+    ON("aah", () => {
+        console.log("Playing AAH");
+        AAH(c, melody[7 - (beat + measure % 8)%8] || Q[0], 0.3, rand.BIAS() * 0.5, c.currentTime, 6);
     });
     ON("pause", () => {
         if (c.state === "running" && PAUSED) {
@@ -363,6 +364,7 @@ SCREEN = ({
     S.FX = (x = "none") => { ctx.filter = x; return S; }
     S.T = (x, y) => { ctx.translate(x, y); return S; }
     S.R = (x, y) => { ctx.rotate(x, y); return S; }
+    S.RR = (...p) => { ctx.roundRect(...p); return S; }
     S.M = (...p) => { ctx.moveTo(...p); return S; };
     S.L = (...p) => { ctx.lineTo(...p); return S; };
     S.A = (x = 0, y = 0, r = 1, s = 0, e = PIZZA[1], c = false) => { ctx.arc(x, y, r, s, e, c); return S; };
@@ -512,6 +514,8 @@ MAKE("ENT", [
     },
     THINK() {},
     DRAW() {},
+    CAN(){},
+    INTERACT(){},
 }, "Array");
 
 MAKE("DRUM", [
@@ -997,13 +1001,30 @@ MAKE("AREA", [
     }
 }, "ENT");
 
+MAKE("WOOD", [["TV",null]],{
+    DRAW(tv) {
+        if (!this.TV) {
+            this.TV = SCREEN({ WIDTH:64, HEIGHT:64 }).P()
+                .M(...rand.XY(1,28)).L(...rand.XY(24,24)) // top left
+                .L(...rand.XY(21,12)).L(...rand.XY(31,11)).L(...rand.XY(33,23)) // nub
+                .L(...rand.XY(47,14)).L(...rand.XY(53,21)).L(...rand.XY(61,31)).L(...rand.XY(52,44)) // right curve
+                .L(...rand.XY(42,47)).L(...rand.XY(43,43)).L(...rand.XY(39,48)).L(...rand.XY(16,57)) // bottom with cut
+                .L(...rand.XY(9,54)).L(...rand.XY(3,42)).C() // right side
+                .F(rand.HWB(15,2, 17,2, 68,4));
+        }
+        tv.IMG(this.TV.CVS,0,0,64,64);
+        return tv;
+    }
+},"ENT");
+
 MAKE("PINE",[
     ["PATH",""],
     ["TV", null],
     ["WIDTH",0],
     ["HEIGHT",0],
     ["NEXT",0],
-    ["COLOR", () => `hwb(${round(150 + rand.BIAS()*2)} ${round(7 + rand()*5)}% ${round(80 + rand.BIAS()*4)}%)`]
+    // ["COLOR", () => `hwb(${round(150 + rand.BIAS()*2)} ${round(7 + rand()*5)}% ${round(80 + rand.BIAS()*4)}%)`]
+    ["COLOR", () => rand.HWB(150,2, 10,6, 80,4)]
 ], {
     GENERATE(_){
         this.SEED = rand.DO(this.SEED,() => {
@@ -1016,7 +1037,6 @@ MAKE("PINE",[
                 const w = s * (t-i);
                 const h = b + s + 0.5;
                 const c = OF(a-i,t);
-                // const n = STRIPE(5,()=>FIX(rand.BIAS() * s / 2));
                 const n = FIX(rand.BIAS()*c*s/2);
                 mw = max(w, mw);
                 const r = `M ${n} ${FIX(p)} L ${FIX(-w)} ${FIX(h)-rand()*c} L ${FIX(x)} ${FIX(b+0.25)} L ${FIX(w)} ${FIX(h)-rand()*c} L ${n} ${FIX(p)}`;
@@ -1047,18 +1067,29 @@ MAKE("PINE",[
             this.NEXT = TCK + 576;
         }
     },
+    CAN(e) {
+        return this.AGE > 2 && this.DIFF(e).LEN() <= 4; //TODO: Add drum requirement
+    },
+    INTERACT(e) {
+        console.log("PINE INTERACT");
+        const f = PUT(new WOOD());
+        e.INVENTORY.push(f);
+        this.GENERATE(this.AGE -= 1);
+        EMIT("beat");
+    }
 }, "ENT");
 
 MAKE("FLOWER",[
     ["TV", null],
     ["PHASE", 0],
-    ["COLOR",() => `hwb(${round(180 + rand.BIAS()*4)} ${round(30 + rand()*5)}% ${round(55 + rand.BIAS()*4)}%)`],
+    // ["COLOR",() => `hwb(${round(180 + rand.BIAS()*4)} ${round(30 + rand()*5)}% ${round(55 + rand.BIAS()*4)}%)`],
+    ["COLOR",() => rand.HWB(180,4, 33,3, 55,4)],
     ["LAST", -1],
     ["WIDTH", 4],
     ["HEIGHT", 4],
     ["BLOOM",false]
 ], {
-    GENERATE(p){
+    GENERATE(){
         const b = this.BLOOM;
         this.TV = this.TV ?? TILE(this.WIDTH * PXL * 4, this.HEIGHT * PXL * 4);
         const xo = rand.BIAS()/4;
@@ -1082,13 +1113,17 @@ MAKE("FLOWER",[
         });
         return this;
     },
-    DRAW(tv) {
+    DRAW(tv, i) {
         if (!this.TV) { return; }
-        tv.DO(() => {
-            this.PREP(tv);
-            tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH * 4, this.HEIGHT * 4);
-        });
-        return this;
+        if (!i) {
+            tv.DO(() => {
+                this.PREP(tv);
+                tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH * 4, this.HEIGHT * 4);
+            });
+        } else {
+            tv.IMG(this.TV.CVS,0,0,64*4,64*4);
+        }
+        return tv;
     },
     UPDATE(d, _p, _h) {
         const p = _p ?? moon?.PHASE, h = _h ?? HOUR;
@@ -1096,17 +1131,20 @@ MAKE("FLOWER",[
             this.LAST = p;
             const b = (p + 28 - this.PHASE)%28 < 3;
             this.BLOOM = b;
-            this.GENERATE(p);
+            this.GENERATE();
         }
         return this;
     },
-    CAN() {
-        return this.BLOOM;
+    CAN(e) {
+        return this.BLOOM && this.DIFF(e).LEN() <= 2;
     },
-    INTERACT() {
+    INTERACT(e) {
+        console.log("FLOWER INTERACT");
         const f = PUT(this.COPY(), { TV: null });
-        PLAYER.INVENTORY.push(f.GENERATE());
-        this.BLOOM;
+        e.INVENTORY.push(f.GENERATE());
+        this.BLOOM = false;
+        this.GENERATE();
+        EMIT("aah");
     }
 }, "ENT");
 
@@ -1125,7 +1163,8 @@ MAKE("WORLD", [
     ["FLOOR", null],
     ["STRIPES", []],
     ["ENTITIES", []],
-    ["LANDSCAPE", []]
+    ["LANDSCAPE", []],
+    ["INTERACTIVE",[]]
 ],
 {
     GENERATE(s) {
@@ -1248,6 +1287,7 @@ MAKE("WORLD", [
         return this;
     },
     DRAW(tv) {
+        this.INTERACTIVE.length = 0;
         const sx = -tv.W2 / PXL;
         const sw = tv.W1 / PXL;
         let STRIDE = 1;
@@ -1279,20 +1319,14 @@ MAKE("WORLD", [
                 z * 2
                 // z
             );
-            // Draw entities on this layer
-            // console.log(`Drawing row ${i} from ${beg} to ${end} (${end-beg}) at [${sx}]`);
-            EACH(SORT(this.GRID[i].filter(x=>x),SCREENSORT),x=>x.DRAW(tv));
-            // STRIPE(wide,x=>this.GRID[i][x+beg]?.DRAW(tv));
-
-            // TODO: Move to using a pre-sorted index for rendering entities here.
+            // Draw entities on this layer, determine the interactive elements
+            EACH(SORT(this.GRID[i].filter(x=>x),SCREENSORT),x=>{
+                x.DRAW(tv);
+                if (x.CAN?.(PLAYER)) {
+                    this.INTERACTIVE.unshift(x);
+                }
+            });
         }
-        // tv.ctx.imageSmoothingEnabled = true;
-        // const e = MAP(
-        //     this.AREAS.filter((x) => x.VISIBLE),
-        //     (x) => [...x.ENTITIES,...x.LANDSCAPE]
-        // ).flat();
-        // e.push(PLAYER);
-        // EACH(SORT(e, SCREENSORT), (x) => x.DRAW(tv));
         return tv.CVS;
     },
 }, "ENT");
@@ -1434,8 +1468,7 @@ const MAIN = (t = 0) => {
                 .IMG(sun.IMG, sx - sun.R, H3 - sy * H3 * 2 - sun.R, sun.D, sun.D);
         }
     });
-    // let lightx = (sy > 0.125 ? sx : mx) / H3 / 2;
-    // let lighty = max(my, sy) * (sy > 0.125 ? 1 : moon.light); // ESIN(h % 0.5) * (h < 0.5 ? 1 : moon.light);
+    // WORLD
     TV.DO(() => {
         // Camera
         TV.T(W2, H2);
@@ -1444,6 +1477,22 @@ const MAIN = (t = 0) => {
     });
     // MOUSE
     TV.DO(() => TV.T(MOUSE.x-2,MOUSE.y-2).S(4,4).R(CIRCLE*ESIN(now%4000/4000)).FP("#2808",MOUSE.PATH));
+    MOUSE.TARGET = PAUSED ? null : world.INTERACTIVE.find(x=>TV.ctx.isPointInPath(x.CLICKAREA(), MOUSE.x, MOUSE.y));
+    if (MOUSE.TARGET) {
+        TV.DO(() => {
+            const p = MOUSE.TARGET.CLICKAREA();
+            TV.ctx.setLineDash([13,7]);
+            TV.ctx.lineDashOffset = now/1000*20;
+            TV.WP("#280", 1, p);    
+        });
+    }
+    // INVENTORY DISPLAY
+    const l = PLAYER.INVENTORY.length;
+    EACH(PLAYER.INVENTORY,(e,i)=>{
+        const x = (TV.W1 - 128) / (l + 1) * (i+1) + 64;
+        const y = TV.H1 - 128;
+        TV.DO(tv=>e.DRAW(tv.T(x,y).P().RR(0,0,64,64,4).C().F("#fff4"), true));
+    });
     // BEGIN DEBUGGING
     if (DEBUG) {
         TV.DO(() => {
@@ -1460,9 +1509,6 @@ const MAIN = (t = 0) => {
             TV.P().M(0, 2 * H3).L(W1, 2 * H3).M(W2, 0).L(W2, H1).M(0, H2).L(W1, H2).W("#0f0", 0.125);
             TV.ctx.fillStyle = "#0f0";
             TV.ctx.font = '16px monospace';
-            // const p = `M ${STRIPE(13,x=>`${FIX(100 + sin(PIZZA[5]*x)*x*5)} ${100+x*5}`).join(" L ")}  L 100 165 C F #0f0c W #000`;
-            // TV.P(p);
-            // TV.IMG(world.MOONS[0].LANDSCAPE[7].TV.CVS, W1-128,0);
             EACH([
                 `Player (${FXD(PLAYER.x)}, ${FXD(PLAYER.y)}, ${FXD(PLAYER.z)}) [${PLAYER.POS()}] c:${FXD(PLAYER.STEPPED(), 3)}/${FXD(PLAYER.CYCLE(), 3)} s:${FXD(PLAYER.SPEED).padStart(6," ")} d:${PLAYER.DIRECTION}`,
                 `Direction ${PLAYER.DIRECTION} Orientation ${PLAYER.ORIENTATION}`,
@@ -1488,6 +1534,8 @@ ONCE("mousedown", () => {
     PAUSED = false;
     DJ = SOUND();
 });
+
+ON("click",() => MOUSE.TARGET?.INTERACT(PLAYER));
 
 ON("keydown", e => {
     EMIT("input"); // This may not work, depending on the key
@@ -1522,7 +1570,7 @@ EACH(["visibilitychange","blur"],e=>ON(e,() => {
 
 const LISTEN = ($,e,f)=>$.addEventListener(e,f);
 EACH(
-  ["mousedown", "mouseup", "mousemove", "keydown", "keyup", "visibilitychange"],
+  ["mousedown", "mouseup", "mousemove", "click", "keydown", "keyup", "visibilitychange"],
   (e) => LISTEN(document, e, (...x) => EMIT(e, ...x))
 );
 EACH(["resize","blur"],e=>LISTEN(window, e, (...x) => EMIT(e, ...x)));
