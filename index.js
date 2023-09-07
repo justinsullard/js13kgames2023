@@ -275,7 +275,6 @@ const SOUND = () => {
     };
     setInterval(play, 100);
     ON("rattle", (a = 0) => {
-        // RATTLE(c, melody[7 - (beat + measure % 8)%8] || Q[0], typeof a === "number" ? a : 0, c.currentTime);
         RATTLE(
             c,
             melody[7 - (beat + measure % 8)%8] || Q[0],
@@ -289,7 +288,7 @@ const SOUND = () => {
     });
     ON("aah", () => {
         console.log("Playing AAH");
-        AAH(c, melody[7 - (beat + measure % 8)%8] || Q[0], 0.3, rand.BIAS() * 0.5, c.currentTime, 6);
+        AAH(c, (melody[7 - (beat + measure % 8)%8] || Q[0]) * 2, 0.3, rand.BIAS() * 0.5, c.currentTime, 6);
     });
     ON("pause", () => {
         if (c.state === "running" && PAUSED) {
@@ -395,7 +394,7 @@ SCREEN = ({
     S.FP = (c, p) => { ctx.fillStyle = c; ctx.fill(p); return S; };
     S.W = (c, w) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.stroke(); return S; };
     S.WP = (c, w, p) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.stroke(p); return S; };
-    S.IMG = (...p) => ctx.drawImage(...p);
+    S.IMG = (...p) => { ctx.drawImage(...p); return S; };
     S.E();
     return S;
 };
@@ -724,11 +723,12 @@ const SHELL = ({ DIAM = 512, DRUMS = [] } = {}) => {
                         }
                     });
                 })
-                return tv.CVS
+                return S;
             },
             add(drum) {
                 DRUMS.push(drum);
                 S.DRAW();
+                return S;
             },
             get IMG() { return sc.CVS; },
         };
@@ -796,15 +796,16 @@ MAKE("PERSON",[
             if (this.shell && (this.ORIENTATION < 0 || PAUSED)) { // Or facing backwards
                 tv.DO(() => {
                     tv.P().A(0 - hx*xs / 2, -1.75 - hy / 2 + S16, 7/8).C()
-                    if (this === PLAYER) { tv.F("#554"); }
+                    // if (this === PLAYER) { tv.F("#554"); }
                     tv.W("#242", 1 / 16);
                     tv.T(0 - hx*xs / 2, -1.75 - hy / 2 + S16);
                     tv.R(this.MOMENTUM[0] / 16);
-                    tv.IMG(this === PLAYER ? world.MAP.CVS : shell.IMG, -1, -1, 2, 2);
-                    if (this === PLAYER) {
-                        let [x, y] = MAP(PLAYER.POS(),x=>x/128)
-                        tv.P().A(x, y, 1/32).C().F(this.COLOR);
-                    }
+                    // tv.IMG(this === PLAYER ? world.MAP.CVS : shell.IMG, -1, -1, 2, 2);
+                    // if (this === PLAYER) {
+                    //     let [x, y] = MAP(PLAYER.POS(),x=>x/128)
+                    //     tv.P().A(x, y, 1/32).C().F(this.COLOR);
+                    // }
+                    tv.IMG(shell.IMG, -1, -1, 2, 2);
                 });
             }
             // BEGIN DEBUGGING
@@ -1155,8 +1156,9 @@ MAKE("FIRE",[], {
 MAKE("WORLD", [
     ["SEED", 13],
     ["AGE", 0],
-    ["MOON", []],
+    ["MOONS", []],
     ["DRUMS", []],
+    ["FIELDS", []],
     ["GRID",() => STRIPE(256,x=>STRIPE(256,y=>null))],
     ["AREAS", []],
     ["MAP", null],
@@ -1172,10 +1174,10 @@ MAKE("WORLD", [
         this.FLOOR = this.FLOOR || SCREEN({ WIDTH: 256, HEIGHT: 256, os: true });
         this.SEED = s;
         rand.SEED(s);
+        // BEGIN DEBUGGING
         console.log("Generating world and setting SEED", s, rand.SEED());
-        let R = 98; // radius of moons
+        // END DEBUGGING
         let r = 16;
-        let z = r * 5.6; // radius of outer path
         this.MOONS = STRIPE(28, (y) => new AREA()
             .GENERATE(12)
             .MOVE([r * 6, 0, 0])
@@ -1185,10 +1187,11 @@ MAKE("WORLD", [
             i < 10
                 ? new AREA()
                     .GENERATE(18)
-                    .MOVE([r * 5, 0, 0])
+                    .MOVE([80, 0, 0])
                     .ROT(PIZZA[10] * (i + 2.5))
                 : new AREA().GENERATE(18).MOVE([0, (i - 11) * r * 2.5, 0])
         );
+        // this.FIELDS = STRIPE(4)
         this.AREAS = [...this.MOONS, ...this.DRUMS]; //.sort(SCREENSORT);
         EACH(this.MOONS, (x, i) => {
             x.NAME = `moon ${i}`;
@@ -1267,7 +1270,9 @@ MAKE("WORLD", [
         // Landscape elements
         this.FLOOR.DO(tv=>{
             tv.center();
+            // BEGIN DEBUGGING
             console.log(`Plotting ${this.LANDSCAPE.length} landscape items`);
+            // END DEBUGGING
             EACH(this.LANDSCAPE.filter(l=>!(l instanceof FLOWER)), l => this.FLOOR.P().A(l.x,l.y+0.5,1.25).F(l.COLOR));
         });
         // Place all entities into the grid
@@ -1493,18 +1498,16 @@ const MAIN = (t = 0) => {
         const y = TV.H1 - 128;
         TV.DO(tv=>e.DRAW(tv.T(x,y).P().RR(0,0,64,64,4).C().F("#fff4"), true));
     });
+    // CLICK TO BEGIN
+    if (!DJ) {
+        TV.ctx.fillStyle = "#0f0";
+        TV.ctx.font = '32px monospace';
+        const s = "Click to begin";
+        TV.ctx.fillText(s, TV.W2-TV.ctx.measureText(s).width/2, TV.H3);
+    }
     // BEGIN DEBUGGING
     if (DEBUG) {
         TV.DO(() => {
-            // EACH(MAP([PLAYER, ...world.ENTITIES], e=>e.PROJECT()),([x,y,z]) => TV.P().A(x,y,abs(z)).C().W("#f00", 1));
-            EACH([PLAYER, ...world.ENTITIES, ...world.LANDSCAPE],x => {
-                const p = x.CLICKAREA();
-                if (TV.ctx.isPointInPath(p, MOUSE.x, MOUSE.y)) {
-                    TV.ctx.setLineDash([13,7]);
-                    TV.ctx.lineDashOffset = now/1000*20;
-                    TV.WP("#280", 1, p);
-                }
-            });
             // grid lines
             TV.P().M(0, 2 * H3).L(W1, 2 * H3).M(W2, 0).L(W2, H1).M(0, H2).L(W1, H2).W("#0f0", 0.125);
             TV.ctx.fillStyle = "#0f0";
@@ -1575,21 +1578,13 @@ EACH(
 );
 EACH(["resize","blur"],e=>LISTEN(window, e, (...x) => EMIT(e, ...x)));
 document.body.appendChild(TV.REAL);
-
-// PLAYER
-// CAMERA
-// PERSON
-// TREE
-// BUSH
-// GRASS
-// PLANT
-// FLOWER
-// ROCK
-
-// F = forward
-// Z = Spiral
-// G = forward, no branch
-// R = turn right
-// L = turn left
-// B = Bloom
-
+// const $b = document.body;
+// $b.appendChild(TV.REAL);
+// const ICON = SCREEN({WIDTH:32,HEIGHT:32,os:false})
+// ICON.REAL.setAttribute("style","position:absolute;left:-1000;top:-1000");
+// document.body.appendChild(ICON.REAL);
+// ICON.E().IMG(shell.DRAW().IMG,0,0,32,32);
+// setTimeout(() => {
+//     console.log(ICON.REAL.toDataURL("image/png"));
+//     document.querySelector('head').innerHTML += `<link type="image/png" rel="icon" href="${ICON.REAL.toDataURL("image/png")}">`;
+// });
