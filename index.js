@@ -19,12 +19,12 @@ let RATE = 1;
 let PXL = 32;
 
 // Utilities
-const { cos, sin, min, max, sqrt, floor, ceil, round, imul, abs, PI, sign } = Math;
+const { cos, sin, min, max, sqrt, floor: FLOOR, ceil, round: ROUND, imul, abs, PI, sign: SIGN } = Math;
 const STRIPE = (l = 0, fn = x => x) => new Array(l).fill(0).map((x, i) => i).map(fn);
 const ROT = ([x, y], a) => [x * cos(a) - y * sin(a), x * sin(a) + y * cos(a)];
 const MOVE = ([x, y, z], [w, h, d]) => [x + w, y + h, z + d];
 const DIFF = ([x, y, z], [w, h, d]) => [x - w, y - h, z - d];
-const FIX = (x, p = 1000) => round(x * p) / p;
+const FIX = (x, p = 1000) => ROUND(x * p) / p;
 // BEGIN DEBUGGING
 const FXD = (x,d=3) => x.toFixed(d);
 // END DEBUGGING
@@ -34,23 +34,15 @@ const IN = (x, l, r) => l < x && x < r;
 const SORT = (x,fn=(a,b)=>a-b) => x.sort(fn);
 const NORM = ([x, y], l=1) => { const m = l / (LEN([x,y]) || 1); return [x*m, y*m]};
 const LEN = ([ax, ay], [bx = 0, by = 0] = []) => sqrt((bx - ax) ** 2 + (by - ay) ** 2);
-const ZFLOOR = x => x > 0 ? floor(x) : ceil(x);
-const ZCEIL = x => x < 0 ? floor(x) : ceil(x);
-const ZROUND = x => sign(x) * round(abs(x));
+const ZFLOOR = x => x > 0 ? FLOOR(x) : ceil(x);
+const ZCEIL = x => x < 0 ? FLOOR(x) : ceil(x);
+const ZROUND = x => SIGN(x) * ROUND(abs(x));
 const CIRCLE = 2 * PI;
-const PIZZA = STRIPE(128, i => (i ? CIRCLE / i : 0)); // WHY DOES ADDING `const` HERE CAUSE BABEL TO ERROR?
+const PIZZA = STRIPE(128, i => (i ? CIRCLE / i : 0));
 const PUT = (...x) => Object.assign(...x);
 const EACH = (x, f) => x.forEach?.(f);
 const MAP = (x, f) => x.map(f);
 const SCREENSORT = (a, b) => a.y - b.y || a.z - b.z || a.x - b.x;
-// const WASD = (x) => MAP(NORM(x),);
-
-// const EL = (n, e, p={}, ...c) => {
-//     const $ = document.createElementNS(n, e);
-//     EACH(Object.entries(p))
-//     return $;
-// }
-// const SVG = (e, ...x) => EL('http://www.w3.org/2000/svg',...x);
 
 // Easing functions
 const EOB = x => 1 + 2.70158 * ((x - 1) ** 3) + 1.70158 * ((x - 1) ** 2);
@@ -124,14 +116,14 @@ const RANDO = (SEED = 0) => {
     };
     return PUT(fn, {
         SEED: (x) => x !== undefined ? a = x | 0 : a,
-        INT: (n = 1) => round(fn() * n),
+        INT: (n = 1) => ROUND(fn() * n),
         BIAS: () => 1 - fn() * 2,
-        sign: () => ZCEIL(fn.BIAS()),
-        bit: () => round(fn()),
-        bool: () => !!round(fn()),
+        SIGN: () => ZCEIL(fn.BIAS()),
+        bit: () => ROUND(fn()),
+        bool: () => !!ROUND(fn()),
         SHUFFLE: (x) => x.slice().sort(fn.BIAS),
         PICK: (x) => x[ZFLOOR(fn() * x.length)],
-        HWB: (h, hh, w, ww, b, bb) => `hwb(${round(h + fn.BIAS()*hh)} ${round(w + fn.BIAS()*ww)}% ${round(b + fn.BIAS()*bb)}%)`,
+        HWB: (h, hh, w, ww, b, bb) => `hwb(${ROUND(h + fn.BIAS()*hh)} ${ROUND(w + fn.BIAS()*ww)}% ${ROUND(b + fn.BIAS()*bb)}%)`,
         XY: (x,y,s=1) => [x+fn.BIAS()*s,y+fn.BIAS()*s],
         DO: (s, f) => {
             const o = a;
@@ -169,12 +161,12 @@ const THIRD = 32 / 27;
 // const MERGE = (a, b) =>SORT([...new Set([...a,...b])]);
 const SONG = (n = 0, o = 0, b = 16) => { // noteCount, offsetNotes, baseNotes
     let m = n ? b / n : 0;
-    return SORT(STRIPE(n, x => floor((x * m) + o + b) % b));
+    return SORT(STRIPE(n, x => FLOOR((x * m) + o + b) % b));
 };
 const SOUNDTRACK = () => {
     let a = Q.slice(1,-1);
     return [
-        [Q[0], 0.4, 0, [0, 3, 8, 11, 14]],
+        [Q[0], 0.3, 0, [0, 3, 8, 11, 14]],
         ...STRIPE(13, (i) => {
             let q = rand.PICK(a);
             a = a.filter(x => x !== q);
@@ -265,11 +257,12 @@ const SOUND = () => {
     let play = () => {
         const m = c.currentTime;
         if (m + 0.25 < n || n < 0) { return; }
-        AAH(c, melody[0] || Q[rand.INT(6)] * 2, 0.3, rand.BIAS() * 0.5, n, floor((n - o)) % 3 + 4);
+        AAH(c, melody[0] || Q[rand.INT(6)] * 2, 0.3, rand.BIAS() * 0.5, n, FLOOR((n - o)) % 3 + 4);
         melody.push(melody.shift());
+        const f =  1 - EIS(OF(voices.length-1, 13)) / 2
         EACH(voices, i => {
             const [q, v, a, p] = track[i];
-            EACH(p, b => BEAT(c, q, v, a, b * 0.25 + n))
+            EACH(p, b => BEAT(c, q, v*f, a, b * 0.25 + n))
         });
         n += 4;
     };
@@ -396,6 +389,7 @@ SCREEN = ({
     S.WP = (c, w, p) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.stroke(p); return S; };
     S.IMG = (...p) => { ctx.drawImage(...p); return S; };
     S.E();
+    S.DRAW = (e) => e.DRAW(S);
     return S;
 };
 const PATH = () => {
@@ -479,7 +473,7 @@ MAKE("ENT", [
     MOVE(x) { [this.x, this.y, this.z] = MOVE(this,x); return this },
     ROT(x) { [this.x, this.y] = ROT(this, x); return this },
     DIFF(x) { return new ENT(...DIFF(this, x)) },
-    POS() { return MAP([this.x,this.y,this.z],round) },
+    POS() { return MAP([this.x,this.y,this.z],ROUND) },
     NORM(l=1) { [this.x, this.y] = NORM([this.x, this.y], l); return this },
     SCALE(l=1) { this.NORM(this.LEN() * l); return this },
     LEN() { return LEN([this.x, this.y]) },
@@ -578,7 +572,7 @@ MAKE("ACT", [
         const STEPPED = this.STEPPED();
         const ENERGY = this.ENERGY();
         let { w, a, s, d } = this;
-        const begx = round(this.x)+128, begy = round(this.y)+128;
+        const begx = ROUND(this.x)+128, begy = ROUND(this.y)+128;
         const tasks = this.SCHEDULE.filter(x => x.TCK <= TCK);
         if (tasks.length) {
             EACH(tasks, x => {
@@ -615,8 +609,8 @@ MAKE("ACT", [
         this.INPUT = new ENT(-a+d, -w+s, 0);
 
         // TODO: check INPUT to ensure it puts us inside of our AREA and adjust if needed
-        this.DIRECTION = sign(this.INPUT.x || this.DIRECTION);
-        this.ORIENTATION = sign(this.INPUT.y || this.ORIENTATION);
+        this.DIRECTION = SIGN(this.INPUT.x || this.DIRECTION);
+        this.ORIENTATION = SIGN(this.INPUT.y || this.ORIENTATION);
         const move = new ENT(...this.INPUT);
         const momentum = new ENT(...this.MOMENTUM);
         const c = this.CYCLE();
@@ -646,7 +640,7 @@ MAKE("ACT", [
         if (this.AREA.length && !this.AREA.find(x => LEN(DIFF(x, target)) < x.RADIUS)) {
             adjust.SCALE(-0.5);
         }
-        let endx = round(this.x+adjust.x)+128, endy = round(this.y+adjust.y)+128;
+        let endx = ROUND(this.x+adjust.x)+128, endy = ROUND(this.y+adjust.y)+128;
         if (begx !== endx || begy !== endy) {
             const o = world.GRID[endy][endx];
             if (o && o !== this) {
@@ -657,7 +651,7 @@ MAKE("ACT", [
                 // END DEBUGGING
                 // TODO: fix this better
                 adjust.SCALE(-0.5);
-                endx = round(this.x+adjust.x)+128, endy = round(this.y+adjust.y)+128
+                endx = ROUND(this.x+adjust.x)+128, endy = ROUND(this.y+adjust.y)+128
             }
             world.GRID[begy][begx]=null;
             world.GRID[endy][endx]=this;
@@ -671,10 +665,10 @@ MAKE("ACT", [
         }
         if (momentum.LEN() === 0 && this.STEPPED() && c) {
             momentum.SCALE(0);
-            this.MOVED = round(this.MOVED * 2) / 2;
+            this.MOVED = ROUND(this.MOVED * 2) / 2;
         }
         if (this === PLAYER) {
-            const s = floor(this.MOVED / 0.25);
+            const s = FLOOR(this.MOVED / 0.25);
             if (s > this.LASTSTEP) {
                 EMIT("rattle", this.TURNING.x/-2);
             }
@@ -739,8 +733,8 @@ const SHELL = ({ DIAM = 512, DRUMS = [] } = {}) => {
 // const RECORD = [];
 const PERSONPATH = new Map();
 MAKE("PERSON",[
-    ["COLOR", () => `hwb(${round(30 + rand.BIAS()*10 - 2)} ${round(0 + rand()*10)}% ${round(47 + rand()*10)}%)`],
-    ["STROKE", () => `hwb(${round(30 + rand.BIAS()*2 - 2)} 0% ${round(67 + rand()*4)}%)`]
+    ["COLOR", () => `hwb(${ROUND(30 + rand.BIAS()*10 - 2)} ${ROUND(0 + rand()*10)}% ${ROUND(47 + rand()*10)}%)`],
+    ["STROKE", () => `hwb(${ROUND(30 + rand.BIAS()*2 - 2)} 0% ${ROUND(67 + rand()*4)}%)`]
 ],{
     PATH(s, c, d, o, m) {
         // const [S, C, D, O, M] = [FIX(s, 8), FIX(c, 64), d, o, FIX(m[0], 8)];
@@ -945,7 +939,7 @@ MAKE("MOON", [
 }, "ENT");
 
 MAKE("AREA", [
-    ["COLOR", () => `hwb(${120 + rand.INT(25)} ${10 + rand.INT(5)}% ${round(65 + rand.INT(5))}%)`],//"#800"],
+    ["COLOR", () => `hwb(${120 + rand.INT(25)} ${10 + rand.INT(5)}% ${ROUND(65 + rand.INT(5))}%)`],//"#800"],
     // ["COLOR", () => "#242"],
     // BEGIN DEBUGGING
     ["NAME", "area"],
@@ -1024,7 +1018,7 @@ MAKE("PINE",[
     ["WIDTH",0],
     ["HEIGHT",0],
     ["NEXT",0],
-    // ["COLOR", () => `hwb(${round(150 + rand.BIAS()*2)} ${round(7 + rand()*5)}% ${round(80 + rand.BIAS()*4)}%)`]
+    // ["COLOR", () => `hwb(${ROUND(150 + rand.BIAS()*2)} ${ROUND(7 + rand()*5)}% ${ROUND(80 + rand.BIAS()*4)}%)`]
     ["COLOR", () => rand.HWB(150,2, 10,6, 80,4)]
 ], {
     GENERATE(_){
@@ -1083,7 +1077,7 @@ MAKE("PINE",[
 MAKE("FLOWER",[
     ["TV", null],
     ["PHASE", 0],
-    // ["COLOR",() => `hwb(${round(180 + rand.BIAS()*4)} ${round(30 + rand()*5)}% ${round(55 + rand.BIAS()*4)}%)`],
+    // ["COLOR",() => `hwb(${ROUND(180 + rand.BIAS()*4)} ${ROUND(30 + rand()*5)}% ${ROUND(55 + rand.BIAS()*4)}%)`],
     ["COLOR",() => rand.HWB(180,4, 33,3, 55,4)],
     ["LAST", -1],
     ["WIDTH", 4],
@@ -1103,7 +1097,7 @@ MAKE("FLOWER",[
                 .P().M(0,0).B(-xo*2,-yo, xo*4,Y, xo,Y).W("#0002",1/8);
             // Bloom
             tv.P().A(xo, Y, b ? 3/4 : 1/8)
-            .F(`hwb(${round((180/28 * this.PHASE + 240 + rand.BIAS()/4)%360)} ${round(10 + rand()*25)}% 5%)`)
+            .F(`hwb(${ROUND((180/28 * this.PHASE + 240 + rand.BIAS()/4)%360)} ${ROUND(10 + rand()*25)}% 5%)`)
             if (this.BLOOM) {
                 // const m = PUT(new MOON(),{RADIUS:10,PHASE:this.PHASE,COLOR:"#fff",STROKE:"#000a"});
                 const m = PUT(new MOON(),{RADIUS:10,PHASE:this.PHASE,COLOR:"#ccf",STROKE:"#000a"});
@@ -1149,8 +1143,31 @@ MAKE("FLOWER",[
     }
 }, "ENT");
 
-MAKE("FIRE",[], {
-
+const FLAME = new Map();
+MAKE("FIRE",[
+    ["LOG", () => new WOOD()],
+    ["O",()=>rand()]
+], {
+    DRAW(tv, c) {
+        tv.DO(() => {
+            this.PREP(tv);
+            const C = FIX((this.O + bar % 0.5 * 2)%1, 64);
+            tv.DO(() => tv.T(-1.5,-2.125).S(1/32,1/32).DRAW(this.LOG));
+            tv.DO(() => tv.T(1.5,-2).S(-1/32,1/32).DRAW(this.LOG));
+            if (!FLAME.has(C)) {
+                const s = TILE(128,256);
+                let hx = ESIN(C);
+                let hy = ESIN((C+0.25)%1);1
+                s.S(64,64).T(1,4).P()
+                    .M(1,-1.5).A(0,-1.5, 1,0,PIZZA[2]) // Bottom of flame
+                    .B(-1,-2.5-hy/2, 0+hx,-2.5-hy, 0-hx/2,-3.5) // Left side of flame
+                    .B(0-hx,-2.5-hy, 1,-2.5-hy/2, 1,-1.5) // Right side of flame
+                    .F(tv.GR(0,-1.25,0.5+hy/8,  0,0,4-hy/4, ["#ff0a", "#e206", "#d004"]));
+                FLAME.set(C,s);
+            }
+            tv.IMG(FLAME.get(C).CVS, -1,-4,2,4)
+        });
+    },
 }, "ENT")
 
 MAKE("WORLD", [
@@ -1217,11 +1234,13 @@ MAKE("WORLD", [
             x.NAME = `drum ${i}`;
             // END DEBUGGING
             // TODO: GENERATE TERRAIN
+            x.ENTITIES.push(new FIRE().MOVE(x));
             // POPULATE WITH ENTITIES
             STRIPE(3,i=>{
                 // const v = new (rand.PICK([PERSON,DEER,BISON]))().MOVE(
                 const v = new PERSON().MOVE(
-                  x.COPY().MOVE(new ENT(0, 6 + rand.INT(6), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)))
+                    // x.COPY().MOVE(new ENT(0, 6 + rand.INT(6), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)))
+                    new ENT(0, 6 + rand.INT(6), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)).MOVE(x)
                 )
                 x.ENTITIES.push(v);
                 v.AREA.push(x);
@@ -1310,7 +1329,7 @@ MAKE("WORLD", [
             //     STRIDE = 0.5;
             // }
             const sp = z * PXL * 2;
-            const beg = max(0,floor(CAMERA.x + 128 - tv.W2 / sp)-4);
+            const beg = max(0,FLOOR(CAMERA.x + 128 - tv.W2 / sp)-4);
             const wide = min(256-beg,ceil(tv.W1 / sp)+8);
             tv.IMG(
                 this.FLOOR.CVS, //this.MAP.CVS,
@@ -1372,15 +1391,15 @@ ON("key-i",()=>DEBUG=!DEBUG);
 const TICK = (d) => {
     const t = d / 1000;
     if (!PAUSED) {
-        // PXL += round((32 - PXL) / 2);
+        // PXL += ROUND((32 - PXL) / 2);
         // UPDATE METRICS
         D += d * RATE;
-        DATE = floor(D / DAY);
+        DATE = FLOOR(D / DAY);
         HOUR = D % DAY / DAY;
-        measure = floor(D / 4000);
+        measure = FLOOR(D / 4000);
         bar = D % 4000 / 4000;
-        beat = floor(bar * 8);
-        TCK = floor(D / 250);
+        beat = FLOOR(bar * 8);
+        TCK = FLOOR(D / 250);
         if (LAST !== TCK) {
             EMIT("tick");
         }
@@ -1421,7 +1440,7 @@ const MAIN = (t = 0) => {
     const h = HOUR;
     const sh = h;
     const mh = (h + 0.5) % 1;
-    moon.PHASE = D ? floor((28 + (D - SKYDELAY() * DAY) / DAY ) % 28) : 0;
+    moon.PHASE = D ? FLOOR((28 + (D - SKYDELAY() * DAY) / DAY ) % 28) : 0;
     let sx = SKYPATH(sh) * W3;
     const sy = RISEFALL(sh);
     let mx = SKYPATH(mh) * W3;
@@ -1561,8 +1580,8 @@ ON("resize", () => {
     // PUT(TV.CVS, p);
 });
 EACH(["visibilitychange","blur"],e=>ON(e,() => {
-    PAUSED = true;
-    EMIT("pause");
+    // PAUSED = true;
+    // EMIT("pause");
     EACH(Object.keys(KEYS),k=>KEYS[k]=0);
 }));
 
@@ -1571,20 +1590,10 @@ EACH(["visibilitychange","blur"],e=>ON(e,() => {
 // e=>ON(e,(...x)=>console.log(e,...x)));
 // END DEBUGGING
 
-const LISTEN = ($,e,f)=>$.addEventListener(e,f);
+const LISTEN = (t,e,f)=>t.addEventListener(e,f);
 EACH(
   ["mousedown", "mouseup", "mousemove", "click", "keydown", "keyup", "visibilitychange"],
   (e) => LISTEN(document, e, (...x) => EMIT(e, ...x))
 );
 EACH(["resize","blur"],e=>LISTEN(window, e, (...x) => EMIT(e, ...x)));
 document.body.appendChild(TV.REAL);
-// const $b = document.body;
-// $b.appendChild(TV.REAL);
-// const ICON = SCREEN({WIDTH:32,HEIGHT:32,os:false})
-// ICON.REAL.setAttribute("style","position:absolute;left:-1000;top:-1000");
-// document.body.appendChild(ICON.REAL);
-// ICON.E().IMG(shell.DRAW().IMG,0,0,32,32);
-// setTimeout(() => {
-//     console.log(ICON.REAL.toDataURL("image/png"));
-//     document.querySelector('head').innerHTML += `<link type="image/png" rel="icon" href="${ICON.REAL.toDataURL("image/png")}">`;
-// });

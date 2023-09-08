@@ -6,6 +6,40 @@ var { minify } = require("uglify-js");
 
 const server = new StaticServer({ rootPath: '.', port: 9080 });
 
+const CHAR = "$ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijlmnopqrstuvwxyz".split("");
+
+function convert(z,x,u){
+    var s=x.length;
+    var d=u.length;
+    var v=0;
+    var n=z.length;
+    for(var i=0;i<n;i++){
+        v=v*s+x.indexOf(z.charAt(i));
+    }
+    if(v<0)return 0;
+    var r=v%d;
+    var c=u.charAt(r);
+    var q=Math.floor(v/d);
+    while(q){
+        r=q%d;
+        q=Math.floor(q/d);
+        c=u.charAt(r)+c;
+    }
+    return c;
+}
+
+const rename = (i) => {
+    let r = i;
+    const l = CHAR.length;
+    let name = "";
+    while(r > 0 || !name) {
+        const m = r % l;
+        r = Math.floor(r/l);
+        name += CHAR[m];
+    }
+    return `$${name}`;
+}
+
 const IGNORE = ["PI","JSON"]
 
 server.start(() => console.log('Server listening to', server.port));
@@ -21,6 +55,7 @@ const build = async () => {
  
         let { error, code, ...other } = minify(adjusted, { mangle: { toplevel: true, properties: false } });
         if (error) { throw error; }
+        console.log(`${Buffer.byteLength(code, "utf8")} bytes minified`);
 
         // LOOK FOR POSSIBLE REPLACEMENT TOKENS
         // const allTokens = code
@@ -31,8 +66,16 @@ const build = async () => {
         // console.log("All possible replacement tokens", allTokens);
 
         // CUSTOM RENAMING OF UPPERCASE TOKENS
-        const tokens = [...new Set(code.match(/(?<![$.]])\b(?<!\[])[A-Z][A-Z0-9]+(?!\])\b/gm))].filter(x => !IGNORE.includes(x)).sort().reverse();
-        tokens.forEach((t, i) => code = code.replace(new RegExp(`\\b${t}\\b`, "gm"), () => `$${i.toString(16).toUpperCase()}`));
+        const tokens = [...new Set(code.match(/(?<![$.]])\b(?<!\[])[A-Z][A-Z0-9]+(?!\])\b/gm))].filter(x => !IGNORE.includes(x)).sort((a,b)=> b.length - a.length || (a < b ? 1 : -1)).reverse();
+
+        // console.log(`Replacing ${tokens.length} tokens: ${rename(0)} through ${rename(tokens.length)}`);
+        // console.log(tokens.map((x,i)=>`${x} = ${rename(i)}`).join("\n"));
+
+        // This method worked, but the updated method shaves just a little bit more off the mark
+        // tokens.forEach((t, i) => code = code.replace(new RegExp(`\\b${t}\\b`, "gm"), () => `$${i.toString(16).toUpperCase()}`));
+        tokens.forEach((t, i) => code = code.replace(new RegExp(`\\b${t}\\b`, "gm"), () => `$_${i}`));
+        tokens.forEach((t, i) => code = code.replace(new RegExp(`\\$_${i}\\b`, "gm"), rename(i)));
+        console.log(`${Buffer.byteLength(code, "utf8")} bytes tokenized`);
 
         // CUSTOM PROPERTY REPLACEMENT TOKENS       
         // const props = [
@@ -59,7 +102,7 @@ const build = async () => {
         const final = html
             .replace(/\n/g, "")
             .replace(/<script.+\/script>/gm, `<script>${code}</script>`);
-        console.log(`${Buffer.byteLength(final, "utf8")} bytes minified`);
+        console.log(`${Buffer.byteLength(final, "utf8")} bytes built`);
         const stream = new PassThrough();
         const zip = new yazl.ZipFile();
         zip.outputStream.pipe(stream);

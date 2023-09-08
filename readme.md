@@ -103,3 +103,9 @@ Adding in some trees and villagers to start populating the world.
 Added collection of Flowers and Wood from Trees, plus a basic inventory rendering. While not restricted to Drums, and without any limits on collection, the basic mechanics should provide most everything else needed for interactions (minus animations). One thing I have considered is what to do with items you might collect that are unnecessary. Some could be burned to the fire, but perhaps the villages or villagers should always accept items as a way to clear inventory and promote interaction.
 
 <img src="devlog.collection.2023-09-06 20-45.gif">
+
+### 2023-09-07
+
+Put together a basic fire. This will be where drums are collected from, and may be adjusted slightly. The rendering efficiency of the generate sprites is proving quite effective.  It might be worth looking at a different strategy for the PERSON/DEER/BISON to still get variation but just reuse the same images instead of the same paths.
+
+<img src="devlog.fire.2023-09-08 00-44.gif">
