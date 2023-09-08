@@ -203,9 +203,9 @@ const BEAT = (c, q, v, a, t, l, b) => {//context, frequency, volume, angleOfPan,
     o.frequency.setValueAtTime(q, t);
     o.frequency.exponentialRampToValueAtTime(q / 1.5, t + 0.5);
     // o.frequency.exponentialRampToValueAtTime(q / 1.25, t + 0.5);
-    g.gain.setValueAtTime(0.1, t);
+    g.gain.setValueAtTime(0.01, t);
     g.gain.exponentialRampToValueAtTime(w, t + 1/32);
-    g.gain.exponentialRampToValueAtTime(w / 5, t + 0.1/16);
+    g.gain.exponentialRampToValueAtTime(w / 5, t + 1/16);
     g.gain.linearRampToValueAtTime(0, t + 0.5);
     p.pan.setValueAtTime(b ?? a, t);
     s.threshold.setValueAtTime(-50, t);
@@ -222,16 +222,16 @@ const BEAT = (c, q, v, a, t, l, b) => {//context, frequency, volume, angleOfPan,
 };
 const RATTLE = (c, q, a = 0, t) => {//context, frequency, volume, angleOfPan, timeToPlay, levelOverride, balanceOverride
     // let q = rand.PICK(Q.slice(1,6))*2;
-    let v = 0.05 + rand() * 0.03;
+    let v = 0.04 + rand() * 0.03;
     let d = 1/8 + rand()/16;
     const o = c.createOscillator();
     const g = c.createGain();
     const p = c.createStereoPanner();
     o.type = "triangle";
     o.frequency.setValueAtTime(q, t);
-    g.gain.setValueAtTime(v / 2, t);
-    g.gain.exponentialRampToValueAtTime(v, t + d/2);
-    g.gain.exponentialRampToValueAtTime(0.01, t + d);
+    g.gain.setValueAtTime(v, t);
+    g.gain.exponentialRampToValueAtTime(v/2, t + 1/32);
+    g.gain.linearRampToValueAtTime(0, t + d);
     p.pan.setValueAtTime(a, t);
     o.connect(g);
     g.connect(p);
@@ -259,7 +259,7 @@ const SOUND = () => {
         if (m + 0.25 < n || n < 0) { return; }
         AAH(c, melody[0] || Q[rand.INT(6)] * 2, 0.3, rand.BIAS() * 0.5, n, FLOOR((n - o)) % 3 + 4);
         melody.push(melody.shift());
-        const f =  1 - EIS(OF(voices.length-1, 13)) / 2
+        const f = 1 - EIS(OF(voices.length-1, 13)) / 2
         EACH(voices, i => {
             const [q, v, a, p] = track[i];
             EACH(p, b => BEAT(c, q, v*f, a, b * 0.25 + n))
