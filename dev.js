@@ -8,26 +8,6 @@ const server = new StaticServer({ rootPath: '.', port: 9080 });
 
 const CHAR = "$ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijlmnopqrstuvwxyz".split("");
 
-function convert(z,x,u){
-    var s=x.length;
-    var d=u.length;
-    var v=0;
-    var n=z.length;
-    for(var i=0;i<n;i++){
-        v=v*s+x.indexOf(z.charAt(i));
-    }
-    if(v<0)return 0;
-    var r=v%d;
-    var c=u.charAt(r);
-    var q=Math.floor(v/d);
-    while(q){
-        r=q%d;
-        q=Math.floor(q/d);
-        c=u.charAt(r)+c;
-    }
-    return c;
-}
-
 const rename = (i) => {
     let r = i;
     const l = CHAR.length;
