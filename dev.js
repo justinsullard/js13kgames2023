@@ -2,8 +2,8 @@ const { watchFile, promises: { readFile, writeFile } } = require('fs');
 const { PassThrough } = require("node:stream");
 const StaticServer = require('static-server');
 const yazl = require("yazl");
-var { minify } = require("uglify-js");
-
+const { minify } = require("uglify-js");
+const { Packer } = require("roadroller");
 const server = new StaticServer({ rootPath: '.', port: 9080 });
 
 const CHAR = "$ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijlmnopqrstuvwxyz".split("");
@@ -25,6 +25,14 @@ const IGNORE = ["PI","JSON"]
 server.start(() => console.log('Server listening to', server.port));
 
 const MAX = 13312;
+
+const roadrollerit = async (data) => {
+    const inputs = [{ data, type: 'js', action: 'eval'}];
+    const packer = new Packer([{ data, type: 'js', action: 'eval'}], {});
+    await packer.optimize();
+    const { firstLine, secondLine } = packer.makeDecoder();
+    return firstLine + secondLine;
+}
 
 const build = async () => {
     try {
@@ -76,6 +84,9 @@ const build = async () => {
         // code = `const ${props.map((p,i)=>`P${i}='${p}'`).join(",")};${code}`;
 
         code = `(()=>{${code}})()`;
+
+        code = await roadrollerit(code);
+        console.log(`${Buffer.byteLength(code, "utf8")} bytes via roadroller`);
 
         await writeFile("./index.min.js", code, "utf8");
         const html = await readFile("./index.html", "utf-8");

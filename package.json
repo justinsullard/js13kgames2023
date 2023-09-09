@@ -13,6 +13,7 @@
   "author": "Justin Sullard",
   "license": "ISC",
   "devDependencies": {
+    "roadroller": "^2.1.0",
     "static-server": "^2.2.1",
     "uglify-js": "^3.17.4",
     "yazl": "^2.5.1"
