@@ -1,7 +1,7 @@
 // GLOBAL VARIABLES (WHICH CAN BE CHANGED POTENTIALLY)
 let now = 0;
 let BPM = 500;
-// 288 TICKS. This is effectively 12 ticks per hour at a 24 hour clock.
+// 288 BEATS (576 TICKS). This is effectively 12 beats (24 ticks) per hour for a 24 hour clock.
 // That's 18 meausre
 let DAY = 144000;
 let D = 0;
@@ -32,6 +32,7 @@ const OF = (x, y) => x < y ? x / y : 1;
 const POF = (val, cap) => max(0, OF(val, cap));
 const IN = (x, l, r) => l < x && x < r;
 const SORT = (x,fn=(a,b)=>a-b) => x.sort(fn);
+const SCALE = ([x, y], s=1) => [x*s, y*s];
 const NORM = ([x, y], l=1) => { const m = l / (LEN([x,y]) || 1); return [x*m, y*m]};
 const LEN = ([ax, ay], [bx = 0, by = 0] = []) => sqrt((bx - ax) ** 2 + (by - ay) ** 2);
 const ZFLOOR = x => x > 0 ? FLOOR(x) : ceil(x);
@@ -194,6 +195,7 @@ const AAH = (c, q, v, a, t, w = 6) => {//context, frequency, volume, angleOfPan,
     o.start(t);
     o.stop(t + 2);
 };
+
 const BEAT = (c, q, v, a, t, l, b) => {//context, frequency, volume, angleOfPan, timeToPlay, levelOverride, balanceOverride
     let o = c.createOscillator();
     let g = c.createGain();
@@ -220,6 +222,7 @@ const BEAT = (c, q, v, a, t, l, b) => {//context, frequency, volume, angleOfPan,
     o.start(t);
     o.stop(t + 0.51);
 };
+
 const RATTLE = (c, q, a = 0, t) => {//context, frequency, volume, angleOfPan, timeToPlay, levelOverride, balanceOverride
     // let q = rand.PICK(Q.slice(1,6))*2;
     let v = 0.04 + rand() * 0.03;
@@ -307,8 +310,8 @@ const SOUND = () => {
 
 // GRAPHICS =====================================
 SCREEN = ({
-    WIDTH = window.innerWidth,
-    HEIGHT = window.innerHeight,
+    WIDTH = min(1920, window.innerWidth),
+    HEIGHT = min(1080, window.innerHeight),
     os = false,
 } = {}) => {
     let REAL = os ? null : document.createElement('canvas');
@@ -392,6 +395,7 @@ SCREEN = ({
     S.DRAW = (e) => e.DRAW(S);
     return S;
 };
+
 const PATH = () => {
     const P = new Path2D();
     P.M = (...p) => { P.moveTo(...p); return P; };
@@ -403,6 +407,7 @@ const PATH = () => {
     P.C = () => { P.closePath(); return P; };
     return P;
 };
+
 const TILE = (WIDTH, HEIGHT) => SCREEN({ WIDTH, HEIGHT: HEIGHT || WIDTH, os: true });
 
 const SUN = (R = 32, F = "#840") => {
@@ -433,6 +438,7 @@ const SUN = (R = 32, F = "#840") => {
 
 // ENTITIES ======================================
 Array.DEFAULTS=()=>[];
+
 const MAKE = (a, d, m={}, p="ENT") => {
     // BEGIN DEBUGGING
     try {
@@ -458,14 +464,15 @@ const MAKE = (a, d, m={}, p="ENT") => {
     }
     // END DEBUGGING
 };
+
 // A bit of rendering optimization. Let's improve the speed of the perspective call
-const YS = STRIPE(1280, (i) => (4 / ((i + 1) / 10)) * 5).reduce((m,x,i) => (m.set((i+1)/10, x)),new Map());
+// const YS = STRIPE(1280, (i) => (4 / ((i + 1) / 10)) * 5).reduce((m,x,i) => (m.set((i+1)/10, x)),new Map());
 
 MAKE("ENT", [
     ["x", 0],
     ["y", 0],
     ["z", 0],
-    ["age", 0],
+    ["AGE", 0],
     ["AREA", []],
     ["SEED",null]
 ], {
@@ -502,11 +509,9 @@ MAKE("ENT", [
         const [x,y,z] = this.PROJECT();
         return PATH().A(x,y,abs(z)).C();
     },
-    UPDATE(_) {
-        let t = _ / 1000;
-    },
-    THINK() {},
-    DRAW() {},
+    UPDATE(){},
+    THINK(){},
+    DRAW(){},
     CAN(){},
     INTERACT(){},
 }, "Array");
@@ -536,7 +541,7 @@ MAKE("TASK", [
     ["TARGET",null],
     ["START", null],
     ["STOP", null],
-    ["UPDATE",()=>{}]
+    ["UPDATE",null]
 ],{},"Array")
 
 const IDLE = { w: 0, a: 0, s: 0, d: 0 };
@@ -566,32 +571,35 @@ MAKE("ACT", [
     CYCLE() { return this.STEPPED() ? OF(this.STEPPED() % 0.5, 0.5) % 1 : 1 - (bar % 0.5 * 2) % 1 },
     UPDATE(_) {
         let t = _ / 1000;
-        // let beat = false;
-        // let { SPEED, DIRECTION } = this;
-        // let breaks = false;
-        const STEPPED = this.STEPPED();
-        const ENERGY = this.ENERGY();
         let { w, a, s, d } = this;
-        const begx = ROUND(this.x)+128, begy = ROUND(this.y)+128;
+        const begx = ROUND(this.x)+128,
+            begy = ROUND(this.y)+128;
         const tasks = this.SCHEDULE.filter(x => x.TCK <= TCK);
         if (tasks.length) {
             EACH(tasks, x => {
                 x.START = x.START || x.TCK;
                 // console.log(`Executing task for ${this.constructor.name}`, x);
                 if (x.TARGET) {
-                    // console.log("Following target");
-                    const delta = LEN(this, x.TARGET);
-                    const towards = x.TARGET.COPY().SCALE(-1).MOVE(this);
-                    if (towards.LEN() > 1/2) {
+                    // const delta = LEN(this, x.TARGET);
+                    // const towards = x.TARGET.DIFF(this);
+                    if (LEN(this, x.TARGET) > 1/16) {
                         x.TCK = TCK;
-                        let dw = abs(this.x - x.TARGET.x);
-                        let dh = abs(this.y - x.TARGET.y);
-                        dw = OF(dw, 1) > 3/8 ? 1 : 0;
-                        dh = OF(dh, 1) > 3/8 ? 1 : 0;
-                        PUT(x.CHANGES, this.x > x.TARGET.x ? { a: dw, d: 0 } : { a: 0, d: dw }, this.y > x.TARGET.y ? { w: dh, s: 0 } : { w: 0, s: dh })
+                        const d = NORM(DIFF(x.TARGET, this), 1);
+                        let [dw, dh] = d.map(abs);
+                        // console.log(`${LEN(this, x.TARGET)} to target`, this.POS(), x.TARGET, d, dw, dh);
+                        // let dw = OF(abs(this.x - x.TARGET.x), 1);
+                        // let dh = OF(abs(this.y - x.TARGET.y), 1);
+                        // dw = OF(dw, 1) > 3/8 ? dw : 0;
+                        // dh = OF(dh, 1) > 3/8 ? dh : 0;
+                        PUT(x.CHANGES,
+                            d[0] < 0 ? { a: dw, d: 0 } : { a: 0, d: dw },
+                            d[1] < 0 ? { w: dh, s: 0 } : { w: 0, s: dh })
+                        // console.log({ p: this.POS(), t: x.TARGET, dw, dh, ...x.CHANGES });
                     } else {
+                        // console.log(`Stopping TASK`, x, LEN(this, x.TARGET));
                         x.STOP = x.TCK;
-                        this.SCHEDULE.push(new TASK(TCK + 1, IDLE, null) ,new TASK(TCK + 12, IDLE, null)); // IDLE TO STOP THINKING
+                        x.CHANGES = {w:0,a:0,s:0,d:0};
+                        // this.SCHEDULE.push(new TASK(TCK + 1, IDLE, null) ,new TASK(TCK + 12, IDLE, null)); // IDLE TO STOP THINKING
                     }
                 } else {
                     x.TCK=-1;
@@ -602,11 +610,11 @@ MAKE("ACT", [
             if (tasks.length) {
                 ({w,a,s,d}=this);
             }
-            this.SCHEDULE = this.SCHEDULE.filter(x => !x.STOP || x.STOP > TCK);
+            this.SCHEDULE = this.SCHEDULE.filter(x => !x.STOP || x.STOP > TCK || x.TCK > TCK);
         } else {
             PUT(this,{w:0,a:0,s:0,d:0});
         }
-        this.INPUT = new ENT(-a+d, -w+s, 0);
+        this.INPUT = new ENT(d-a, s-w, 0);
 
         // TODO: check INPUT to ensure it puts us inside of our AREA and adjust if needed
         this.DIRECTION = SIGN(this.INPUT.x || this.DIRECTION);
@@ -614,20 +622,12 @@ MAKE("ACT", [
         const move = new ENT(...this.INPUT);
         const momentum = new ENT(...this.MOMENTUM);
         const c = this.CYCLE();
-        // if (move.LEN() === 0 && momentum.LEN() < c / 2 && IN(c, 1 / 8, 7 / 8)) {
         if (move.LEN() === 0 && IN(momentum.LEN(), 1/16, c)) {
-            // if (this === PLAYER) {
-            //     console.log("Forcing completion of step", c, momentum.LEN());
-            // }
             move.MOVE(new ENT(...this.TURNING).NORM(((1 - c) / 2)));
         }
-        // if (move.LEN() === 0) { return; }
         move.NORM(t*4);
         if (this.INPUT.LEN()) {
             const s = 0.75 + OF(move.COPY().NORM(2).MOVE(momentum.COPY().NORM(1)).LEN(), 3) / 4;
-            // if (this === PLAYER && s < 1) {
-            //     console.log("Shifting momentum", momentum.LEN(), s);
-            // }
             momentum.SCALE(s);
         }
         momentum.MOVE(move);
@@ -644,12 +644,6 @@ MAKE("ACT", [
         if (begx !== endx || begy !== endy) {
             const o = world.GRID[endy][endx];
             if (o && o !== this) {
-                // cancel the movement, we can't go there
-                // adjust.SCALE(0);
-                // BEGIN DEBUGGING
-                // console.log("Prevented collision between", this, o);
-                // END DEBUGGING
-                // TODO: fix this better
                 adjust.SCALE(-0.5);
                 endx = ROUND(this.x+adjust.x)+128, endy = ROUND(this.y+adjust.y)+128
             }
@@ -676,13 +670,6 @@ MAKE("ACT", [
         }
         this.PROJECTED = this.PROJECT();
     },
-    THINK() {
-        if (!this.SCHEDULE?.length) {
-            // TODO: TEMPORARY, let's make this make more sense
-            const a = this.AREA[0];
-            this.SCHEDULE = [new TASK(TCK, {}, a.COPY().MOVE(new ENT(0, 2 + rand.INT(a.RADIUS-2), 0).ROT(rand() * CIRCLE)))];
-        }
-    }
 }, "ENT");
 
 const SHELL = ({ DIAM = 512, DRUMS = [] } = {}) => {
@@ -811,7 +798,33 @@ MAKE("PERSON",[
             }
             // END DEBUGGING
         });
-    }
+    },
+    THINK() {
+        if (!this.SCHEDULE?.length) {
+            const t = TCK % 576;
+            const d = TCK - t;
+            // const h = this.AREA[0];
+            // const a = a.COPY().DIFF(this);
+            // this.SCHEDULE.push(
+            //     PUT(new TASK(), { TCK: d+16 + rand.INT(16), TARGET: a.COPY().ROT(-PIZZA[13]).SCALE(0.75).MOVE(h) }),
+            //     PUT(new TASK(), { TCK: d+88 + rand.INT(16), TARGET: a.COPY().ROT(PIZZA[13]).SCALE(0.5).MOVE(h) }),
+            //     PUT(new TASK(), { TCK: d+144 + rand.INT(16), TARGET: a.COPY().SCALE(0.25).MOVE(h) }),
+            //     PUT(new TASK(), { TCK: d+208 + rand.INT(16), TARGET: this.COPY() })
+            // );
+            const a = this.AREA[0];
+            const m = DIFF(a, this);
+            const l = LEN(m);
+            this.SCHEDULE = [
+                // PUT(new TASK(), { TCK: d+16 + rand.INT(16), TARGET: MOVE(SCALE(m, (l-2)/l ), this) }),
+                PUT(new TASK(), { TCK: d+16 + rand.INT(16), TARGET: MOVE(NORM(m, -2), a) }),
+                PUT(new TASK(), { TCK: d+64 + rand.INT(16), TARGET: this.POS() }),
+                PUT(new TASK(), { TCK: d+288 + rand.INT(16), TARGET: MOVE(SCALE(m, (l-2)/l), this) }),
+                PUT(new TASK(), { TCK: d+416 + rand.INT(16), TARGET: this.POS() }),
+                PUT(new TASK(), { TCK: d+575 })
+            ].filter(x=>x.TCK >= TCK);
+            // console.log("Scheduled", this.POS(), this.SCHEDULE.slice())
+        }
+    },
 },"ACT");
 
 MAKE("DEER", [], {
@@ -1240,7 +1253,7 @@ MAKE("WORLD", [
                 // const v = new (rand.PICK([PERSON,DEER,BISON]))().MOVE(
                 const v = new PERSON().MOVE(
                     // x.COPY().MOVE(new ENT(0, 6 + rand.INT(6), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)))
-                    new ENT(0, 6 + rand.INT(6), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)).MOVE(x)
+                    new ENT(0, 10 + rand.INT(2), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)).MOVE(x)
                 )
                 x.ENTITIES.push(v);
                 v.AREA.push(x);
@@ -1419,7 +1432,7 @@ const TICK = (d) => {
         world.UPDATE(d);
         PLAYER.UPDATE(d);
         // TODO: FIX THIS
-        // EACH(world.ENTITIES, x => x.THINK?.());
+        EACH(world.ENTITIES, x => x.THINK?.());
         EACH(world.ENTITIES, x => x.UPDATE?.(d));
     }
     // UPDATE CAMERA
@@ -1575,7 +1588,7 @@ ON("mousedown", () => EMIT("input"));
 ON("mousemove", ({clientX: x, clientY: y}) => PUT(MOUSE,{x,y}));
 
 ON("resize", () => {
-    TV.RESIZE(window.innerWidth, window.innerHeight);
+    TV.RESIZE(min(1920, window.innerWidth), min(1080, window.innerHeight));
     // PUT(TV.REAL, p);
     // PUT(TV.CVS, p);
 });
