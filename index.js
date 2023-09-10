@@ -1519,7 +1519,7 @@ const TICK = (d) => {
         // PXL += ROUND((32 - PXL) / 2);
         // UPDATE METRICS
         D += d * RATE;
-        DATE = FLOOR(D / DAY);
+        // DATE = FLOOR(D / DAY);
         HOUR = D % DAY / DAY;
         measure = FLOOR(D / 4000);
         bar = D % 4000 / 4000;
