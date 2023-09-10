@@ -31,6 +31,7 @@ const FXD = (x,d=3) => x.toFixed(d);
 const OF = (x, y) => x < y ? x / y : 1;
 const POF = (val, cap) => max(0, OF(val, cap));
 const IN = (x, l, r) => l < x && x < r;
+const IS = (x,t) => x instanceof t;
 const SORT = (x,fn=(a,b)=>a-b) => x.sort(fn);
 const SCALE = ([x, y], s=1) => [x*s, y*s];
 const NORM = ([x, y], l=1) => { const m = l / (LEN([x,y]) || 1); return [x*m, y*m]};
@@ -267,7 +268,7 @@ const SOUND = () => {
         if (mq) { melody = mq; mq = null }
         AAH(
             c,
-            melody[7 - (beat + measure % 8)%8] || Q[rand.INT(6)] * 2,
+            (melody[7 - (beat + measure % 8)%8] || Q[rand.INT(6)] * 2) / 2,
             0.2,
             rand.BIAS() * 0.5,
             n,
@@ -302,7 +303,7 @@ const SOUND = () => {
     });
     FRESH();
     return {
-        // FRESH,
+        FRESH,
         n,
         get track() { return track; },
         get voices() { return voices; },
@@ -694,7 +695,7 @@ const SHELL = ({ DIAM = 512, DRUMS = [] } = {}) => {
                     let z = r * 5.6;
                     if (tv === sc) {
                         tv.E().center();
-                    }
+                    }    
                     tv.P().A(0, 0, R).C().F(tv.GR(0, r * 2, r * 4, 0, 0, DIAM, ["#242", "#262"]));
                     sc.P().A(0, 0, z);
                     STRIPE(28, i => {
@@ -704,8 +705,14 @@ const SHELL = ({ DIAM = 512, DRUMS = [] } = {}) => {
                     sc.W(sc.GR(0, r * 2, r * 3, 0, 0, DIAM, ["#3536", "#4846"]), 2)
                     STRIPE(13, i => {
                         let x = 0, y = (i - 11) * r * 2.25;
+                        // i < 10
+                        // ? new AREA()
+                        //     .GENERATE(18)
+                        //     .MOVE([80, 0, 0])
+                        //     .ROT(PIZZA[10] * (i + 2.5))
+                        // : new AREA().GENERATE(18).MOVE([0, (i - 11) * r * 2.5, 0])
                         if (i < 10) {
-                            const a = PIZZA[10] * (i - 2);
+                            const a = PIZZA[10] * (i + 2.5);
                             [x, y] = ROT([r * 4.5, 0], a)
                         }
                         sc.P().A(x, y, r).C().F("rgba(127,127,127,0.25)");
@@ -717,8 +724,8 @@ const SHELL = ({ DIAM = 512, DRUMS = [] } = {}) => {
                 })
                 return S;
             },
-            add(drum) {
-                DRUMS.push(drum);
+            ADD(drum) {
+                DRUMS[world.DRUMS.indexOf(drum)] = 1;
                 S.DRAW();
                 return S;
             },
@@ -733,7 +740,10 @@ const PERSONPATH = new Map();
 MAKE("PERSON",[
     ["HOME",null],
     ["COLOR", () => `hwb(${ROUND(30 + rand.BIAS()*10 - 2)} ${ROUND(0 + rand()*10)}% ${ROUND(47 + rand()*10)}%)`],
-    ["STROKE", () => `hwb(${ROUND(30 + rand.BIAS()*2 - 2)} 0% ${ROUND(67 + rand()*4)}%)`]
+    ["STROKE", () => `hwb(${ROUND(30 + rand.BIAS()*2 - 2)} 0% ${ROUND(67 + rand()*4)}%)`],
+    ["READY", 0],
+    ["NEEDS", []],
+    ["WANTS", []]
 ],{
     PATH(s, c, d, o, m) {
         // const [S, C, D, O, M] = [FIX(s, 8), FIX(c, 64), d, o, FIX(m[0], 8)];
@@ -801,6 +811,9 @@ MAKE("PERSON",[
                     tv.IMG(shell.IMG, -1, -1, 2, 2);
                 });
             }
+            if (MOUSE.TARGET === this) {
+                // RENDER OUR NEEDS
+            }
             // BEGIN DEBUGGING
             if (DEBUG) {
                 tv.font = ``;
@@ -815,17 +828,11 @@ MAKE("PERSON",[
         if (!this.HOME) {
             this.HOME = this.POS();
         }
+        if (!this.READY) { return; } // Don't do anything until your needs are met.
         if (!this.SCHEDULE?.length) {
             const t = TCK % 576;
             const d = TCK - t;
-            // const h = this.AREA[0];
-            // const a = a.COPY().DIFF(this);
-            // this.SCHEDULE.push(
-            //     PUT(new TASK(), { TCK: d+16 + rand.INT(16), TARGET: a.COPY().ROT(-PIZZA[13]).SCALE(0.75).MOVE(h) }),
-            //     PUT(new TASK(), { TCK: d+88 + rand.INT(16), TARGET: a.COPY().ROT(PIZZA[13]).SCALE(0.5).MOVE(h) }),
-            //     PUT(new TASK(), { TCK: d+144 + rand.INT(16), TARGET: a.COPY().SCALE(0.25).MOVE(h) }),
-            //     PUT(new TASK(), { TCK: d+208 + rand.INT(16), TARGET: this.COPY() })
-            // );
+
             const a = this.AREA[0];
             const m = DIFF(a, this);
             const l = LEN(m);
@@ -836,9 +843,30 @@ MAKE("PERSON",[
                 PUT(new TASK(), { TCK: d+416 + rand.INT(16), TARGET: this.HOME }),
                 PUT(new TASK(), { TCK: d+575 })
             ].filter(x=>x.TCK >= TCK);
-            // console.log("Scheduled", this.POS(), this.SCHEDULE.slice())
         }
     },
+    CAN(e) {
+        return this !== e
+            && this.DIFF(e).LEN() <= 4
+            && (
+                (!this.READY && !this.NEEDS.length) // Ready to go to the drum circle
+                || this.NEEDS.find(x=>PLAYER.INVENTORY.find(y=>IS(y,x))) // Needs something the player has
+                || (this.READY && this.WANTS.find(x=>PLAYER.INVENTORY.find(y=>IS(y,x)))) // Is ready and wants something the player has
+            );
+    },
+    INTERACT(e) {
+        if (!this.READY && !this.NEEDS.length) {
+            EMIT("AAH");
+            this.READY = 1;
+        }
+        const NEEDS = MAP(this.NEEDS,x=>e.INVENTORY.find(y=>IS(y,x))).filter(x=>x);
+        if (NEEDS.LENGTH) {
+            const d = this.NEEDS.filter(x=>NEEDS.find(y=>IS(y,x)));
+            e.INVENTORY = e.INVENTORY.filter(x=>!NEEDS.includes(x));
+            this.NEEDS = this.NEEDS.filter(x=>!d.includes(x));
+        }
+        // Add trade
+    }
 },"ACT");
 
 MAKE("DEER", [], {
@@ -1065,7 +1093,7 @@ MAKE("PINE",[
         return this.AGE > 2 && this.DIFF(e).LEN() <= 4; //TODO: Add drum requirement
     },
     INTERACT(e) {
-        console.log("PINE INTERACT");
+        // console.log("PINE INTERACT");
         const f = PUT(new WOOD());
         e.INVENTORY.push(f);
         this.GENERATE(this.AGE -= 1);
@@ -1081,7 +1109,7 @@ MAKE("FLOWER",[
     ["LAST", -1],
     ["WIDTH", 4],
     ["HEIGHT", 4],
-    ["BLOOM",false]
+    ["BLOOM",0]
 ], {
     GENERATE(){
         const b = this.BLOOM;
@@ -1121,10 +1149,11 @@ MAKE("FLOWER",[
     },
     UPDATE(d, _p, _h) {
         const p = _p ?? moon?.PHASE, h = _h ?? HOUR;
-        if (p !== this.LAST && h >= 0.5) {
+        if (p !== this.LAST && h >= 0.5 && !this.BLOOM) {
             this.LAST = p;
-            const b = (p + 28 - this.PHASE)%28 < 3;
-            this.BLOOM = b;
+            // const b = (p + 28 - this.PHASE)%28 < 3;
+            // this.BLOOM = b;
+            this.BLOOM = 1 * (( moon?.PHASE ?? -1) === this.PHASE);
             this.GENERATE();
         }
         return this;
@@ -1133,26 +1162,79 @@ MAKE("FLOWER",[
         return this.BLOOM && this.DIFF(e).LEN() <= 2;
     },
     INTERACT(e) {
-        console.log("FLOWER INTERACT");
+        // console.log("FLOWER INTERACT");
         const f = PUT(this.COPY(), { TV: null });
         e.INVENTORY.push(f.GENERATE());
-        this.BLOOM = false;
+        this.BLOOM = 0;
         this.GENERATE();
         EMIT("AAH");
     }
 }, "ENT");
 
+MAKE("BASKET", [["TV",null]],{
+    DRAW(tv) {
+    }
+},"ENT");
+
+MAKE("CORN", [["TV",null]],{
+    DRAW(tv) {
+    }
+},"ENT");
+
+MAKE("MEDICINE", [["TV",null]],{
+    DRAW(tv) {
+    }
+},"ENT");
+
+MAKE("HATCHET", [["TV",null]],{
+    DRAW(tv) {
+    }
+},"ENT");
+
+MAKE("BOW", [["TV",null]],{
+    DRAW(tv) {
+    }
+},"ENT");
+
+MAKE("TEEPEE", [["TV",null]],{
+    DRAW(tv) {
+    }
+},"ENT");
+
+
+MAKE("SPEAR", [["TV",null]],{
+    DRAW(tv) {
+    }
+},"ENT");
+
+MAKE("DREAMCATCHER", [["TV",null]],{
+    DRAW(tv) {
+    }
+},"ENT");
+
+MAKE("BOAT", [["TV",null]],{
+    DRAW(tv) {
+    }
+},"ENT");
+
+
+
+
+
 const FLAME = new Map();
 MAKE("FIRE",[
     ["LOG", () => new WOOD()],
-    ["O",()=>rand()]
+    ["O",()=>rand()],
+    ["DRUM", null]
 ], {
     DRAW(tv, c) {
         tv.DO(() => {
             this.PREP(tv);
             const C = FIX((this.O + bar % 0.5 * 2)%1, 64);
-            tv.DO(() => tv.T(-1.5,-2.125).S(1/32,1/32).DRAW(this.LOG));
-            tv.DO(() => tv.T(1.5,-2).S(-1/32,1/32).DRAW(this.LOG));
+            // tv.DO(() => tv.T(-1.5,-2.125).S(1/32,1/32).DRAW(this.LOG));
+            // tv.DO(() => tv.T(1.5,-2).S(-1/32,1/32).DRAW(this.LOG));
+            tv.DO(() => tv.T(-1.5,-2).S(1/32,1/32).DRAW(this.LOG));
+            tv.DO(() => tv.T(1.5,-1.75).S(-1/32,1/32).DRAW(this.LOG));
             if (!FLAME.has(C)) {
                 const s = TILE(128,256);
                 let hx = ESIN(C);
@@ -1167,13 +1249,25 @@ MAKE("FIRE",[
             tv.IMG(FLAME.get(C).CVS, -1,-4,2,4)
         });
     },
+    CAN(e) {
+        return !!(!this.AREA[0].ENTITIES.filter(x=>IS(x,PERSON)).find(x=>!x.READY) && this.DRUM); // Add trash interaction technique
+    },
+    INTERACT(e) {
+        if (this.DRUM) {
+            PLAYER.shell.ADD(this.DRUM);
+            this.DRUM = 0;
+            EMIT("AAH");
+            EMIT("BEAT");
+        }
+    }
 }, "ENT")
 
 MAKE("WORLD", [
     ["SEED", 13],
     ["AGE", 0],
+    ["DRUMS",[]],
     ["MOONS", []],
-    ["DRUMS", []],
+    ["VILLAGES", []],
     ["FIELDS", []],
     ["GRID",() => STRIPE(256,x=>STRIPE(256,y=>null))],
     ["AREAS", []],
@@ -1195,6 +1289,22 @@ MAKE("WORLD", [
         // BEGIN DEBUGGING
         console.log("Generating world and setting SEED", s, rand.SEED());
         // END DEBUGGING
+        const [sd, td] = rand.SHUFFLE([BASKET, HATCHET]);
+        const [ld, rd] = rand.SHUFFLE([
+            rand.SHUFFLE([SPEAR, BISON, CORN]),
+            rand.SHUFFLE([BOW, DEER, TEEPEE])
+        ]);
+        this.DRUMS = [
+            PERSON,
+            sd,
+            ...ld,
+            BOAT,
+            ...rd,
+            td,
+            ...rand.SHUFFLE([MEDICINE, DREAMCATCHER]),
+            SHELL
+        ];
+
         this.SOUNDTRACK = SOUNDTRACK();
         this.MELODY = MELODY();
         let r = 16;
@@ -1203,7 +1313,7 @@ MAKE("WORLD", [
             .MOVE([r * 6, 0, 0])
             .ROT(y * PIZZA[28] - PIZZA[4])
         );
-        this.DRUMS = STRIPE(13, (i) =>
+        this.VILLAGES = STRIPE(13, (i) =>
             i < 10
                 ? new AREA()
                     .GENERATE(18)
@@ -1212,7 +1322,7 @@ MAKE("WORLD", [
                 : new AREA().GENERATE(18).MOVE([0, (i - 11) * r * 2.5, 0])
         );
         // this.FIELDS = STRIPE(4)
-        this.AREAS = [...this.MOONS, ...this.DRUMS]; //.sort(SCREENSORT);
+        this.AREAS = [...this.MOONS, ...this.VILLAGES]; //.sort(SCREENSORT);
         EACH(this.MOONS, (x, i) => {
             x.NAME = `moon ${i}`;
             // x.ENTITIES.push(new PINE().GENERATE().MOVE(x))
@@ -1232,12 +1342,16 @@ MAKE("WORLD", [
             x.LANDSCAPE.push(f);
             this.LANDSCAPE.push(f);
         });
-        EACH(this.DRUMS, (x, i) => {
+        EACH(this.VILLAGES, (x, i) => {
             // BEGIN DEBUGGING
             x.NAME = `drum ${i}`;
             // END DEBUGGING
             // TODO: GENERATE TERRAIN
-            x.ENTITIES.push(new FIRE().MOVE(x));
+            // Make fire and assign drum
+            const f = new FIRE().MOVE(x);
+            f.DRUM = this.DRUMS[i];
+            x.ENTITIES.push(f);
+            f.AREA.push(x);
             // POPULATE WITH ENTITIES
             STRIPE(3,i=>{
                 // const v = new (rand.PICK([PERSON,DEER,BISON]))().MOVE(
@@ -1248,7 +1362,7 @@ MAKE("WORLD", [
                 x.ENTITIES.push(v);
                 v.AREA.push(x);
             });
-            // x.SOUNDTRACK = SOUNDTRACK();
+            x.SOUNDTRACK = SOUNDTRACK();
             x.MELODY = MELODY();
         });
         this.ENTITIES.push(
@@ -1315,8 +1429,8 @@ MAKE("WORLD", [
         if (areas.find(x => !PLAYER.AREA.includes(x)) || PLAYER.AREA.find(x => !areas.includes(x))) {
             // EMIT("AAH");
             PLAYER.AREA = areas;
-            // DJ?.FRESH?.((areas.find(x=>x.SOUNDTRACK) || this).SOUNDTRACK, (areas.find(x=>x.MELODY) || this).MELODY);    
-            DJ?.FRESH?.(this.SOUNDTRACK, (areas.find(x=>x.MELODY) || this).MELODY);    
+            DJ?.FRESH?.((areas.find(x=>x.SOUNDTRACK) || this).SOUNDTRACK, (areas.find(x=>x.MELODY) || this).MELODY);    
+            // DJ?.FRESH?.(this.SOUNDTRACK, (areas.find(x=>x.MELODY) || this).MELODY);    
         }
         EACH(this.AREAS,x=>x.UPDATE(_));
         return this;
@@ -1325,29 +1439,22 @@ MAKE("WORLD", [
         this.INTERACTIVE.length = 0;
         const sx = -tv.W2 / PXL;
         const sw = tv.W1 / PXL;
-        let STRIDE = 1;
         // tv.ctx.imageSmoothingEnabled = false;
-        // for (let i = max(0, ROUND(CAMERA.y + 1)); i <= min(256, ROUND(CAMERA.y + 132)); i += STRIDE) {
-        for (let i = 0; i <= min(256, ROUND(CAMERA.y + 132)); i += STRIDE) {
-                // if ( i < CAMERA.y) {
-            //     continue;
-            // }
-            // if (i > CAMERA.y + 132) {
-            //     break;
-            // }
+        // Limit ourselves to up to 132 slices beyond the camera, and make the first couple of layers semi-transparent
+        let o = 1;
+        // for (let i = 0; i <= min(256, ROUND(CAMERA.y + 132)); i += 1) {
+        for (let i = max(0, ROUND(CAMERA.y)); i <= min(256, ROUND(CAMERA.y + 132)); i += 1) {
+            if (o) { tv.O(1-o); }
             const s = new ENT(CAMERA.x, i - 128, 0).PROJECT(0);
             const z = s[2];
             if (z === 0) {
                 break;
             }
-            // if (z > 1) {
-            //     STRIDE = 0.5;
-            // }
             const sp = z * PXL * 2;
             const beg = max(0,FLOOR(CAMERA.x + 128 - tv.W2 / sp)-4);
             const wide = min(256-beg,ceil(tv.W1 / sp)+8);
             tv.IMG(
-                this.FLOOR.CVS, //this.MAP.CVS,
+                this.FLOOR.CVS,
                 CAMERA.x + 128 - tv.W2 / sp,
                 i,
                 tv.W1 / sp,
@@ -1356,7 +1463,6 @@ MAKE("WORLD", [
                 (s[1] - tv.H2) / PXL,
                 sw,
                 z * 2
-                // z
             );
             // Draw entities on this layer, determine the interactive elements
             EACH(SORT(this.GRID[i].filter(x=>x),SCREENSORT),x=>{
@@ -1365,6 +1471,10 @@ MAKE("WORLD", [
                     this.INTERACTIVE.unshift(x);
                 }
             });
+            if (o) {
+                tv.O(1);
+                o = max(0, o - z/4);
+            }
         }
         return tv.CVS;
     },
@@ -1533,11 +1643,17 @@ const MAIN = (t = 0) => {
         TV.DO(tv=>e.DRAW(tv.T(x,y).P().RR(0,0,64,64,4).C().F("#fff4"), true));
     });
     // CLICK TO BEGIN
-    if (!DJ) {
+    if (PAUSED) {
         TV.ctx.fillStyle = "#0f0";
         TV.ctx.font = '32px monospace';
-        const s = "Click to begin";
-        TV.ctx.fillText(s, TV.W2-TV.ctx.measureText(s).width/2, TV.H3);
+        // const s = "Click to play";
+        // TV.ctx.fillText(s, TV.W2-TV.ctx.measureText(s).width/2, TV.H3);
+        EACH([
+            "wasd + shift = move",
+            "esc = pause/resume",
+            "mouse = interact",
+            !DJ ? "click to play" : "- paused -"
+        ], ((x, i) => TV.ctx.fillText(x, TV.W2 - TV.ctx.measureText(x).width/2, (i + 1) * 32)));
     }
     // BEGIN DEBUGGING
     if (DEBUG) {
