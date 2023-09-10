@@ -20,7 +20,7 @@ const rename = (i) => {
     return `$${name}`;
 }
 
-const IGNORE = ["PI","JSON"]
+const IGNORE = ["PI","JSON","DJ"]
 
 server.start(() => console.log('Server listening to', server.port));
 
@@ -61,7 +61,7 @@ const build = async () => {
 
         // This method worked, but the updated method shaves just a little bit more off the mark
         // tokens.forEach((t, i) => code = code.replace(new RegExp(`\\b${t}\\b`, "gm"), () => `$${i.toString(16).toUpperCase()}`));
-        tokens.forEach((t, i) => code = code.replace(new RegExp(`\\b${t}\\b`, "gm"), () => `$_${i}`));
+        tokens.forEach((t, i) => code = code.replace(new RegExp(`(?<![$.]])\\b${t}\\b`, "gm"), () => `$_${i}`));
         tokens.forEach((t, i) => code = code.replace(new RegExp(`\\$_${i}\\b`, "gm"), rename(i)));
         console.log(`${Buffer.byteLength(code, "utf8")} bytes tokenized`);
 
@@ -84,11 +84,12 @@ const build = async () => {
         // code = `const ${props.map((p,i)=>`P${i}='${p}'`).join(",")};${code}`;
 
         code = `(()=>{${code}})()`;
+        await writeFile("./index.min.js", code, "utf8");
 
         code = await roadrollerit(code);
         console.log(`${Buffer.byteLength(code, "utf8")} bytes via roadroller`);
 
-        await writeFile("./index.min.js", code, "utf8");
+        await writeFile("./index.pack.js", code, "utf8");
         const html = await readFile("./index.html", "utf-8");
         const final = html
             .replace(/\n/g, "")

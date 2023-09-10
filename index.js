@@ -157,15 +157,16 @@ const ONCE = (e, f) => {
 
 // MUSIC ========================================
 let DJ = 0;
-const Q = [32.7, 36.71, 41.2, 43.65, 49, 55, 61.74, 65.41, 73.42, 87.31, 98, 110, 130.81, 174.61, 196].map(x => x * 2);
-const THIRD = 32 / 27;
-// const MERGE = (a, b) =>SORT([...new Set([...a,...b])]);
 const SONG = (n = 0, o = 0, b = 16) => { // noteCount, offsetNotes, baseNotes
     let m = n ? b / n : 0;
     return SORT(STRIPE(n, x => FLOOR((x * m) + o + b) % b));
 };
+const CM = SONG(7,2,12);
+const THIRD = 32 / 27;
+const Q = STRIPE(51,x=>440*2**((x-36)/12)).filter((x,i)=>CM.includes(i%12)).slice(2);
+const MERGE = (a, b) =>SORT([...new Set([...a,...b])]);
 const SOUNDTRACK = () => {
-    let a = Q.slice(1,-1);
+    let a = Q.slice(1,14);
     return [
         [Q[0], 0.3, 0, [0, 3, 8, 11, 14]],
         ...STRIPE(13, (i) => {
@@ -175,7 +176,7 @@ const SOUNDTRACK = () => {
         })
     ];
 };
-const MELODY = () => [Q[0], ...rand.SHUFFLE(Q.slice(1, 9))].slice(0, 8).map(x => x * 2);
+const MELODY = () => [Q[15], ...rand.SHUFFLE(Q.slice(16))].slice(0, 8);
 
 const AAH = (c, q, v, a, t, w = 6) => {//context, frequency, volume, angleOfPan, timeToPlay
     const o = c.createOscillator();
@@ -250,9 +251,11 @@ const SOUND = () => {
     let voices = [0];
     let track = [];
     let melody = [];
-    let FRESH = (t, m) => {
-        track = t || SOUNDTRACK();
-        melody = m || MELODY();
+    let tq = null;
+    let mq = null;
+    let FRESH = (t = SOUNDTRACK(), m = MELODY()) => {
+        tq = t;
+        mq = m;
     };
     // const d = c.createAnalyser();
     // audioSource.connect(analyser);
@@ -260,20 +263,27 @@ const SOUND = () => {
     let play = () => {
         const m = c.currentTime;
         if (m + 0.25 < n || n < 0) { return; }
-        AAH(c, melody[0] || Q[rand.INT(6)] * 2, 0.3, rand.BIAS() * 0.5, n, FLOOR((n - o)) % 3 + 4);
-        melody.push(melody.shift());
-        const f = 1 - EIS(OF(voices.length-1, 13)) / 2
+        if (tq) { track = tq; tq = null }
+        if (mq) { melody = mq; mq = null }
+        AAH(
+            c,
+            melody[7 - (beat + measure % 8)%8] || Q[rand.INT(6)] * 2,
+            0.2,
+            rand.BIAS() * 0.5,
+            n,
+            FLOOR((n - o)) % 3 + 4
+        );
         EACH(voices, i => {
             const [q, v, a, p] = track[i];
-            EACH(p, b => BEAT(c, q, v*f, a, b * 0.25 + n))
+            EACH(p, b => BEAT(c, q, FIX(v), a, b * 0.25 + n))
         });
         n += 4;
     };
     setInterval(play, 100);
-    ON("rattle", (a = 0) => {
+    ON("RATTLE", (a = 0) => {
         RATTLE(
             c,
-            melody[7 - (beat + measure % 8)%8] || Q[0],
+            (melody[beat] || Q[15])/2,
             typeof a === "number" ? a : 0,
             c.currentTime
         );
@@ -282,10 +292,7 @@ const SOUND = () => {
         const [q, v, a, p] = track[0];
         BEAT(c, Q[14], v, a, c.currentTime);
     });
-    ON("aah", () => {
-        console.log("Playing AAH");
-        AAH(c, (melody[7 - (beat + measure % 8)%8] || Q[0]) * 2, 0.3, rand.BIAS() * 0.5, c.currentTime, 6);
-    });
+    ON("AAH", () => AAH(c, (melody[7 - (beat + measure % 8)%8] || Q[0]) * 2, 0.3, rand.BIAS() * 0.5, c.currentTime, 6));
     ON("pause", () => {
         if (c.state === "running" && PAUSED) {
             c.suspend();
@@ -294,15 +301,14 @@ const SOUND = () => {
         }        
     });
     FRESH();
-    play();
     return {
-        FRESH,
+        // FRESH,
         n,
         get track() { return track; },
         get voices() { return voices; },
         get melody() { return melody; },
         sing: (x = [], m) => {
-            voices = [0, ...x];
+            voices = MERGE([0, ...x]);
             melody = m || melody
         },
     };
@@ -570,7 +576,7 @@ MAKE("ACT", [
     STEPPED() { let x = this.MOVED % 1; x *= this.MOMENTUM.LEN?.() || IN(x, 1/32,31/32) ? 1 : 0; return (this.DIRECTION < 0 ? 1 - x : x) % 1 },
     CYCLE() { return this.STEPPED() ? OF(this.STEPPED() % 0.5, 0.5) % 1 : 1 - (bar % 0.5 * 2) % 1 },
     UPDATE(_) {
-        let t = _ / 1000;
+        let t = min(1,_/ 1000);
         let { w, a, s, d } = this;
         const begx = ROUND(this.x)+128,
             begy = ROUND(this.y)+128;
@@ -640,7 +646,12 @@ MAKE("ACT", [
         if (this.AREA.length && !this.AREA.find(x => LEN(DIFF(x, target)) < x.RADIUS)) {
             adjust.SCALE(-0.5);
         }
-        let endx = ROUND(this.x+adjust.x)+128, endy = ROUND(this.y+adjust.y)+128;
+        let endx = ROUND(this.x+adjust.x)+128,
+        endy = ROUND(this.y+adjust.y)+128;
+        if (endx < 0 || endx > 255 || endy < 0 || endy > 256) {
+            console.log(`Bad end of movement`, endx, endy, this);
+            return;
+        }
         if (begx !== endx || begy !== endy) {
             const o = world.GRID[endy][endx];
             if (o && o !== this) {
@@ -664,11 +675,11 @@ MAKE("ACT", [
         if (this === PLAYER) {
             const s = FLOOR(this.MOVED / 0.25);
             if (s > this.LASTSTEP) {
-                EMIT("rattle", this.TURNING.x/-2);
+                EMIT("RATTLE", this.TURNING.x/-2);
             }
             this.LASTSTEP = s;
         }
-        this.PROJECTED = this.PROJECT();
+        // this.PROJECTED = this.PROJECT();
     },
 }, "ENT");
 
@@ -965,7 +976,7 @@ MAKE("AREA", [
     ["LANDSCAPE",[]],
     // ["VISIBLE", 0],
     // ["DEBUG",null],
-    ["SOUNDTRACK",null],
+    // ["SOUNDTRACK",null],
     ["MELODY",null],
 ], {
     GENERATE(r = 16) {
@@ -976,41 +987,12 @@ MAKE("AREA", [
         return this
     },
     UPDATE(_) {
-        const _r = this.RADIUS + 1;
-        const [l] = new ENT(-_r, -_r, 0).MOVE(this).PROJECT();
-        const [r] = new ENT(_r, -_r, 0).MOVE(this).PROJECT();
+        // const _r = this.RADIUS + 1;
+        // const [l] = new ENT(-_r, -_r, 0).MOVE(this).PROJECT();
+        // const [r] = new ENT(_r, -_r, 0).MOVE(this).PROJECT();
         // this.VISIBLE =  r <= 0 || l >= TV.W1 ? 0 : 1;
         EACH(this.LANDSCAPE,x=>x.UPDATE(_));
     },
-    // DRAW(tv) {
-    //     if (!this.VISIBLE) { return; }
-    //     tv.DO(() => {
-    //         let o = 0;
-    //         // Prepare the movements
-    //         let worker = new ENT();
-    //         let t = MAP(this.POINTS, (p, i) => {
-    //             worker.splice(0, worker.length, ...p);
-    //             const [x, y, ys] = worker.MOVE(this).PERSPECTIVE();
-    //             if (ys) {
-    //                 o = max(o, ys);
-    //                 let tx = x * ys,
-    //                   ty = y * ys;
-    //                 return () => (i ? tv.L : tv.M)(tx, ty);
-    //             }
-    //             return () => { };
-    //         });
-    //         // TODO: Fill in the bottom
-    //         // Draw stuff
-    //         tv.P();
-    //         EACH(t, f => f());
-    //         tv.C()
-    //         .O(0.25)
-    //         .F(this.COLOR)
-    //         .W(this.COLOR,2/32);
-    //         tv.P(`M ${FIX(l)} ${FIX(u)} L ${FIX(r)} ${FIX(u)} W #0f0 4`);
-    //     })
-    //     return tv.CVS
-    // }
 }, "ENT");
 
 MAKE("WOOD", [["TV",null]],{
@@ -1156,7 +1138,7 @@ MAKE("FLOWER",[
         e.INVENTORY.push(f.GENERATE());
         this.BLOOM = false;
         this.GENERATE();
-        EMIT("aah");
+        EMIT("AAH");
     }
 }, "ENT");
 
@@ -1266,7 +1248,7 @@ MAKE("WORLD", [
                 x.ENTITIES.push(v);
                 v.AREA.push(x);
             });
-            x.SOUNDTRACK = SOUNDTRACK();
+            // x.SOUNDTRACK = SOUNDTRACK();
             x.MELODY = MELODY();
         });
         this.ENTITIES.push(
@@ -1329,8 +1311,13 @@ MAKE("WORLD", [
     LOAD() {},
     UPDATE(_) {
         let t = _ / 1000;
-        PLAYER.AREA = this.AREAS.filter((a) => LEN(DIFF(a, PLAYER)) < a.RADIUS);
-        DJ.FRESH((PLAYER.AREA.find(x=>x.SOUNDTRACK) || this).SOUNDTRACK, (PLAYER.AREA.find(x=>x.MELODY) || this).MELODY);
+        const areas = this.AREAS.filter((a) => LEN(DIFF(a, PLAYER)) < a.RADIUS);
+        if (areas.find(x => !PLAYER.AREA.includes(x)) || PLAYER.AREA.find(x => !areas.includes(x))) {
+            // EMIT("AAH");
+            PLAYER.AREA = areas;
+            // DJ?.FRESH?.((areas.find(x=>x.SOUNDTRACK) || this).SOUNDTRACK, (areas.find(x=>x.MELODY) || this).MELODY);    
+            DJ?.FRESH?.(this.SOUNDTRACK, (areas.find(x=>x.MELODY) || this).MELODY);    
+        }
         EACH(this.AREAS,x=>x.UPDATE(_));
         return this;
     },
@@ -1340,10 +1327,14 @@ MAKE("WORLD", [
         const sw = tv.W1 / PXL;
         let STRIDE = 1;
         // tv.ctx.imageSmoothingEnabled = false;
-        for (let i = 0; i <= 256; i += STRIDE) {
-            if (i > CAMERA.y + 132) {
-                break;
-            }
+        // for (let i = max(0, ROUND(CAMERA.y + 1)); i <= min(256, ROUND(CAMERA.y + 132)); i += STRIDE) {
+        for (let i = 0; i <= min(256, ROUND(CAMERA.y + 132)); i += STRIDE) {
+                // if ( i < CAMERA.y) {
+            //     continue;
+            // }
+            // if (i > CAMERA.y + 132) {
+            //     break;
+            // }
             const s = new ENT(CAMERA.x, i - 128, 0).PROJECT(0);
             const z = s[2];
             if (z === 0) {
@@ -1576,10 +1567,7 @@ MAIN(0);
 
 // Event handling
 const KEYS = { w: 0, a: 0, s: 0, d: 0, get change() { return this.w + this.a + this.s + this.d; }, get MOVE() { let { w, a, s, d } = this; return { w, a, s, d }; } };
-ONCE("mousedown", () => {
-    PAUSED = false;
-    DJ = SOUND();
-});
+ONCE("mousedown", () => PAUSED = false);
 
 ON("click",() => MOUSE.TARGET?.INTERACT(PLAYER));
 
@@ -1620,4 +1608,5 @@ EACH(
   (e) => LISTEN(document, e, (...x) => EMIT(e, ...x))
 );
 EACH(["resize","blur"],e=>LISTEN(window, e, (...x) => EMIT(e, ...x)));
+LISTEN(document,"click",()=>DJ=DJ||SOUND());
 document.body.appendChild(TV.REAL);
