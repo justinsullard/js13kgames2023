@@ -109,3 +109,10 @@ Added collection of Flowers and Wood from Trees, plus a basic inventory renderin
 Put together a basic fire. This will be where drums are collected from, and may be adjusted slightly. The rendering efficiency of the generate sprites is proving quite effective.  It might be worth looking at a different strategy for the PERSON/DEER/BISON to still get variation but just reuse the same images instead of the same paths.
 
 <img src="devlog.fire.2023-09-08 00-44.gif">
+
+### 2023-09-09
+
+Got the drum-circle scheduled for the villagers after working out a couple of bugs in the target-based tasks.
+
+<img src="devlog.drumcircle.2023-09-09 20-34.gif">
+
