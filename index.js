@@ -46,7 +46,7 @@ const EACH = (x, f) => x.forEach?.(f);
 const MAP = (x, f) => x.map(f);
 const SCREENSORT = (a, b) => a.y - b.y || a.z - b.z || a.x - b.x;
 
-// Easing functions
+// EaSING functions
 const EOB = x => 1 + 2.70158 * ((x - 1) ** 3) + 1.70158 * ((x - 1) ** 2);
 // const EOC = x => 1 - (1 - x)**3;
 const EIB = x => x * x * (2.70158 * x - 1.70158);
@@ -165,7 +165,7 @@ const SONG = (n = 0, o = 0, b = 16) => { // noteCount, offsetNotes, baseNotes
 const CM = SONG(7,2,12);
 const THIRD = 32 / 27;
 const Q = STRIPE(51,x=>440*2**((x-36)/12)).filter((x,i)=>CM.includes(i%12)).slice(2);
-const MERGE = (a, b) =>SORT([...new Set([...a,...b])]);
+const MERGE = (a, b=[]) =>SORT([...new Set([...a,...b])]);
 const SOUNDTRACK = () => {
     let a = Q.slice(1,14);
     return [
@@ -179,7 +179,7 @@ const SOUNDTRACK = () => {
 };
 const MELODY = () => [Q[15], ...rand.SHUFFLE(Q.slice(16))].slice(0, 8);
 
-const AAH = (c, q, v, a, t, w = 6) => {//context, frequency, volume, angleOfPan, timeToPlay
+const AAH = (c, d, q, v, a, t, w = 6) => {//context, frequency, volume, angleOfPan, timeToPlay
     const o = c.createOscillator();
     const g = c.createGain();
     const p = c.createStereoPanner();
@@ -193,12 +193,12 @@ const AAH = (c, q, v, a, t, w = 6) => {//context, frequency, volume, angleOfPan,
     p.pan.exponentialRampToValueAtTime(-a, t + 2);
     o.connect(g);
     g.connect(p);
-    p.connect(c.destination);
+    p.connect(d);
     o.start(t);
     o.stop(t + 2);
 };
 
-const BEAT = (c, q, v, a, t, l, b) => {//context, frequency, volume, angleOfPan, timeToPlay, levelOverride, balanceOverride
+const BEAT = (c, d, q, v, a, t, l, b) => {//context, frequency, volume, angleOfPan, timeToPlay, levelOverride, balanceOverride
     let o = c.createOscillator();
     let g = c.createGain();
     let p = c.createStereoPanner();
@@ -220,15 +220,15 @@ const BEAT = (c, q, v, a, t, l, b) => {//context, frequency, volume, angleOfPan,
     o.connect(g);
     g.connect(p);
     p.connect(s);
-    s.connect(c.destination);
+    s.connect(d);
     o.start(t);
     o.stop(t + 0.51);
 };
 
-const RATTLE = (c, q, a = 0, t) => {//context, frequency, volume, angleOfPan, timeToPlay, levelOverride, balanceOverride
+const RATTLE = (c, d, q, a = 0, t) => {//context, frequency, volume, angleOfPan, timeToPlay, levelOverride, balanceOverride
     // let q = rand.PICK(Q.slice(1,6))*2;
     let v = 0.04 + rand() * 0.03;
-    let d = 1/8 + rand()/16;
+    let x = 1/8 + rand()/16;
     const o = c.createOscillator();
     const g = c.createGain();
     const p = c.createStereoPanner();
@@ -236,17 +236,24 @@ const RATTLE = (c, q, a = 0, t) => {//context, frequency, volume, angleOfPan, ti
     o.frequency.setValueAtTime(q, t);
     g.gain.setValueAtTime(v, t);
     g.gain.exponentialRampToValueAtTime(v/2, t + 1/32);
-    g.gain.linearRampToValueAtTime(0, t + d);
+    g.gain.linearRampToValueAtTime(0, t + x);
     p.pan.setValueAtTime(a, t);
     o.connect(g);
     g.connect(p);
-    p.connect(c.destination);
+    p.connect(d);
     o.start(t);
-    o.stop(t + d);
+    o.stop(t + x);
 };
 
 const SOUND = () => {
-    let c = new AudioContext();
+    const c = new AudioContext();
+
+    const d = c.createAnalyser();
+    d.connect(c.destination);
+    d.fftSize = 256;
+    const bl = d.frequencyBinCount;
+    const data = new Uint8Array(bl);
+
     let o = -FIX(D / 4000, 10) % 1;
     let n = o;
     let voices = [0];
@@ -258,9 +265,6 @@ const SOUND = () => {
         tq = t;
         mq = m;
     };
-    // const d = c.createAnalyser();
-    // audioSource.connect(analyser);
-    // d.connect(c.destination);
     let play = () => {
         const m = c.currentTime;
         if (m + 0.25 < n || n < 0) { return; }
@@ -268,6 +272,7 @@ const SOUND = () => {
         if (mq) { melody = mq; mq = null }
         AAH(
             c,
+            d,
             (melody[7 - (beat + measure % 8)%8] || Q[rand.INT(6)] * 2) / 2,
             0.2,
             rand.BIAS() * 0.5,
@@ -276,7 +281,7 @@ const SOUND = () => {
         );
         EACH(voices, i => {
             const [q, v, a, p] = track[i];
-            EACH(p, b => BEAT(c, q, FIX(v), a, b * 0.25 + n))
+            EACH(p, b => BEAT(c, d, q, FIX(v), a, b * 0.25 + n))
         });
         n += 4;
     };
@@ -284,6 +289,7 @@ const SOUND = () => {
     ON("RATTLE", (a = 0) => {
         RATTLE(
             c,
+            d,
             (melody[beat] || Q[15])/2,
             typeof a === "number" ? a : 0,
             c.currentTime
@@ -291,9 +297,9 @@ const SOUND = () => {
     });
     ON("beat", () => {
         const [q, v, a, p] = track[0];
-        BEAT(c, Q[14], v, a, c.currentTime);
+        BEAT(c, d, Q[14], v, a, c.currentTime);
     });
-    ON("AAH", () => AAH(c, (melody[7 - (beat + measure % 8)%8] || Q[0]) * 2, 0.3, rand.BIAS() * 0.5, c.currentTime, 6));
+    ON("AAH", () => AAH(c, d, (melody[7 - (beat + measure % 8)%8] || Q[0]) * 2, 0.3, rand.BIAS() * 0.5, c.currentTime, 6));
     ON("pause", () => {
         if (c.state === "running" && PAUSED) {
             c.suspend();
@@ -308,7 +314,11 @@ const SOUND = () => {
         get track() { return track; },
         get voices() { return voices; },
         get melody() { return melody; },
-        sing: (x = [], m) => {
+        get DATA() {
+            d.getByteFrequencyData(data);
+            return Array.from(data).slice(0,bl/2);
+        },
+        SING: (x = [], m) => {
             voices = MERGE([0, ...x]);
             melody = m || melody
         },
@@ -833,12 +843,13 @@ MAKE("PERSON",[
             const t = TCK % 576;
             const d = TCK - t;
 
-            const a = this.AREA[0];
+            const a = this.AREA[0];10
             const m = DIFF(a, this);
             const l = LEN(m);
             this.SCHEDULE = [
-                PUT(new TASK(), { TCK: d+16 + rand.INT(16), TARGET: MOVE(NORM(m, -2), a) }),
-                PUT(new TASK(), { TCK: d+64 + rand.INT(16), TARGET: this.HOME }),
+                // The "Breakfast Run" is cool and all but it's not really necessary
+                // PUT(new TASK(), { TCK: d+16 + rand.INT(16), TARGET: MOVE(NORM(m, -2), a) }),
+                // PUT(new TASK(), { TCK: d+64 + rand.INT(16), TARGET: this.HOME }),
                 PUT(new TASK(), { TCK: d+288 + rand.INT(16), TARGET: MOVE(SCALE(m, (l-2)/l), this) }),
                 PUT(new TASK(), { TCK: d+416 + rand.INT(16), TARGET: this.HOME }),
                 PUT(new TASK(), { TCK: d+575 })
@@ -858,6 +869,14 @@ MAKE("PERSON",[
         if (!this.READY && !this.NEEDS.length) {
             EMIT("AAH");
             this.READY = 1;
+            const t = TCK % 576;
+            if (t < 400) {
+                const d = TCK - t;
+                const a = this.AREA[0];10
+                const m = DIFF(a, this);
+                const l = LEN(m);
+                this.SCHEDULE.push(PUT(new TASK(), { TCK: TCK + 1 + rand.INT(8), TARGET: MOVE(SCALE(m, (l-2)/l), this) }));
+            }
         }
         const NEEDS = MAP(this.NEEDS,x=>e.INVENTORY.find(y=>IS(y,x))).filter(x=>x);
         if (NEEDS.LENGTH) {
@@ -1250,11 +1269,17 @@ MAKE("FIRE",[
         });
     },
     CAN(e) {
-        return !!(!this.AREA[0].ENTITIES.filter(x=>IS(x,PERSON)).find(x=>!x.READY) && this.DRUM); // Add trash interaction technique
+        return !!(
+            !this.AREA[0].ENTITIES.filter(x=>IS(x,PERSON)).find(x=>!x.READY)
+            && this.DRUM
+        ); // Add trash interaction technique
     },
     INTERACT(e) {
-        if (this.DRUM) {
-            PLAYER.shell.ADD(this.DRUM);
+        const { DRUM } = this;
+        if (DRUM) {
+            PLAYER.DRUMS.push(DRUM);
+            PLAYER.shell.ADD(DRUM);
+            DJ.SING(MAP(PLAYER.shell.DRUMS,(x,i)=>x ? i+1 : null).filter(x=>x));
             this.DRUM = 0;
             EMIT("AAH");
             EMIT("BEAT");
@@ -1442,8 +1467,10 @@ MAKE("WORLD", [
         // tv.ctx.imageSmoothingEnabled = false;
         // Limit ourselves to up to 132 slices beyond the camera, and make the first couple of layers semi-transparent
         let o = 1;
+        // const s = 0;
+        const s = max(0, ROUND(CAMERA.y)) // If we want to add in fog and not rendering stuff far enough away;
         // for (let i = 0; i <= min(256, ROUND(CAMERA.y + 132)); i += 1) {
-        for (let i = max(0, ROUND(CAMERA.y)); i <= min(256, ROUND(CAMERA.y + 132)); i += 1) {
+        for (let i = s; i <= min(256, ROUND(CAMERA.y + 132)); i += 1) {
             if (o) { tv.O(1-o); }
             const s = new ENT(CAMERA.x, i - 128, 0).PROJECT(0);
             const z = s[2];
@@ -1624,6 +1651,15 @@ const MAIN = (t = 0) => {
         TV.S(PXL, PXL);
         world.DRAW(TV);
     });
+    // MUSIC VISUALIZER
+    // if (DJ) {
+    //     const v = DJ.DATA;
+    //     const w = W1/(v.length*2-1);
+    //     const h = H3/4;
+    //     TV.DO(() => {
+    //         TV.FP("#f00", [...v.slice().reverse(), ...v].reduce((p,y,x) => p.L(x*w, H1-y/256*h-PXL), PATH().M(0,H1)).L(W1,H1).C());
+    //     })
+    // }
     // MOUSE
     TV.DO(() => TV.T(MOUSE.x-2,MOUSE.y-2).S(4,4).R(CIRCLE*ESIN(now%4000/4000)).FP("#2808",MOUSE.PATH));
     MOUSE.TARGET = PAUSED ? null : world.INTERACTIVE.find(x=>TV.ctx.isPointInPath(x.CLICKAREA(), MOUSE.x, MOUSE.y));
@@ -1638,7 +1674,7 @@ const MAIN = (t = 0) => {
     // INVENTORY DISPLAY
     const l = PLAYER.INVENTORY.length;
     EACH(PLAYER.INVENTORY,(e,i)=>{
-        const x = (TV.W1 - 128) / (l + 1) * (i+1) + 64;
+        const x = (TV.W1 - 128) / (l + 1) * (i+1) + 32;
         const y = TV.H1 - 128;
         TV.DO(tv=>e.DRAW(tv.T(x,y).P().RR(0,0,64,64,4).C().F("#fff4"), true));
     });
@@ -1670,7 +1706,7 @@ const MAIN = (t = 0) => {
                 // `Turning (${FXD(PLAYER.TURNING?.LEN?.() || 0)}) ${PLAYER.TURNING.map(x => FXD(x))}`,
                 `Camera (${FXD(CAMERA.x)}, ${FXD(CAMERA.y)}, ${FXD(CAMERA.z)})`,
                 `Tick ${TCK} Measure ${measure + 1}.${FXD(beat + step + 1,1)}`,
-                `Area ${PLAYER.AREA?.map?.(x=>x.NAME).join(", ") || "missing"}`,
+                `Area ${PLAYER.AREA?.map?.(x=>x.NAME).join(", ") || "misSING"}`,
                 `fps ${FXD(1000 / d,1)} ${FXD(performance.now() - start,3)}`,
             ], ((x, i) => TV.ctx.fillText(x, 16, H1 - 16 - i * 16)));
             TV.IMG(world.FLOOR.CVS,0,0,256,256);
