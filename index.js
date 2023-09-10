@@ -250,7 +250,7 @@ const SOUND = () => {
     let voices = [0];
     let track = [];
     let melody = [];
-    let fresh = (t, m) => {
+    let FRESH = (t, m) => {
         track = t || SOUNDTRACK();
         melody = m || MELODY();
     };
@@ -293,10 +293,10 @@ const SOUND = () => {
             c.resume();
         }        
     });
-    fresh();
+    FRESH();
     play();
     return {
-        fresh,
+        FRESH,
         n,
         get track() { return track; },
         get voices() { return voices; },
@@ -644,7 +644,7 @@ MAKE("ACT", [
         if (begx !== endx || begy !== endy) {
             const o = world.GRID[endy][endx];
             if (o && o !== this) {
-                adjust.SCALE(-0.5);
+                adjust.SCALE(-0.1);
                 endx = ROUND(this.x+adjust.x)+128, endy = ROUND(this.y+adjust.y)+128
             }
             world.GRID[begy][begx]=null;
@@ -720,6 +720,7 @@ const SHELL = ({ DIAM = 512, DRUMS = [] } = {}) => {
 // const RECORD = [];
 const PERSONPATH = new Map();
 MAKE("PERSON",[
+    ["HOME",null],
     ["COLOR", () => `hwb(${ROUND(30 + rand.BIAS()*10 - 2)} ${ROUND(0 + rand()*10)}% ${ROUND(47 + rand()*10)}%)`],
     ["STROKE", () => `hwb(${ROUND(30 + rand.BIAS()*2 - 2)} 0% ${ROUND(67 + rand()*4)}%)`]
 ],{
@@ -800,6 +801,9 @@ MAKE("PERSON",[
         });
     },
     THINK() {
+        if (!this.HOME) {
+            this.HOME = this.POS();
+        }
         if (!this.SCHEDULE?.length) {
             const t = TCK % 576;
             const d = TCK - t;
@@ -815,11 +819,10 @@ MAKE("PERSON",[
             const m = DIFF(a, this);
             const l = LEN(m);
             this.SCHEDULE = [
-                // PUT(new TASK(), { TCK: d+16 + rand.INT(16), TARGET: MOVE(SCALE(m, (l-2)/l ), this) }),
                 PUT(new TASK(), { TCK: d+16 + rand.INT(16), TARGET: MOVE(NORM(m, -2), a) }),
-                PUT(new TASK(), { TCK: d+64 + rand.INT(16), TARGET: this.POS() }),
+                PUT(new TASK(), { TCK: d+64 + rand.INT(16), TARGET: this.HOME }),
                 PUT(new TASK(), { TCK: d+288 + rand.INT(16), TARGET: MOVE(SCALE(m, (l-2)/l), this) }),
-                PUT(new TASK(), { TCK: d+416 + rand.INT(16), TARGET: this.POS() }),
+                PUT(new TASK(), { TCK: d+416 + rand.INT(16), TARGET: this.HOME }),
                 PUT(new TASK(), { TCK: d+575 })
             ].filter(x=>x.TCK >= TCK);
             // console.log("Scheduled", this.POS(), this.SCHEDULE.slice())
@@ -953,7 +956,6 @@ MAKE("MOON", [
 
 MAKE("AREA", [
     ["COLOR", () => `hwb(${120 + rand.INT(25)} ${10 + rand.INT(5)}% ${ROUND(65 + rand.INT(5))}%)`],//"#800"],
-    // ["COLOR", () => "#242"],
     // BEGIN DEBUGGING
     ["NAME", "area"],
     // END DEBUGGING
@@ -961,8 +963,10 @@ MAKE("AREA", [
     ["POINTS", []],
     ["ENTITIES", []],
     ["LANDSCAPE",[]],
-    ["VISIBLE", 0],
-    ["DEBUG",null]
+    // ["VISIBLE", 0],
+    // ["DEBUG",null],
+    ["SOUNDTRACK",null],
+    ["MELODY",null],
 ], {
     GENERATE(r = 16) {
         this.RADIUS = r;
@@ -975,38 +979,38 @@ MAKE("AREA", [
         const _r = this.RADIUS + 1;
         const [l] = new ENT(-_r, -_r, 0).MOVE(this).PROJECT();
         const [r] = new ENT(_r, -_r, 0).MOVE(this).PROJECT();
-        this.VISIBLE =  r <= 0 || l >= TV.W1 ? 0 : 1;
+        // this.VISIBLE =  r <= 0 || l >= TV.W1 ? 0 : 1;
         EACH(this.LANDSCAPE,x=>x.UPDATE(_));
     },
-    DRAW(tv) {
-        if (!this.VISIBLE) { return; }
-        tv.DO(() => {
-            let o = 0;
-            // Prepare the movements
-            let worker = new ENT();
-            let t = MAP(this.POINTS, (p, i) => {
-                worker.splice(0, worker.length, ...p);
-                const [x, y, ys] = worker.MOVE(this).PERSPECTIVE();
-                if (ys) {
-                    o = max(o, ys);
-                    let tx = x * ys,
-                      ty = y * ys;
-                    return () => (i ? tv.L : tv.M)(tx, ty);
-                }
-                return () => { };
-            });
-            // TODO: Fill in the bottom
-            // Draw stuff
-            tv.P();
-            EACH(t, f => f());
-            tv.C()
-            .O(0.25)
-            .F(this.COLOR)
-            .W(this.COLOR,2/32);
-            tv.P(`M ${FIX(l)} ${FIX(u)} L ${FIX(r)} ${FIX(u)} W #0f0 4`);
-        })
-        return tv.CVS
-    }
+    // DRAW(tv) {
+    //     if (!this.VISIBLE) { return; }
+    //     tv.DO(() => {
+    //         let o = 0;
+    //         // Prepare the movements
+    //         let worker = new ENT();
+    //         let t = MAP(this.POINTS, (p, i) => {
+    //             worker.splice(0, worker.length, ...p);
+    //             const [x, y, ys] = worker.MOVE(this).PERSPECTIVE();
+    //             if (ys) {
+    //                 o = max(o, ys);
+    //                 let tx = x * ys,
+    //                   ty = y * ys;
+    //                 return () => (i ? tv.L : tv.M)(tx, ty);
+    //             }
+    //             return () => { };
+    //         });
+    //         // TODO: Fill in the bottom
+    //         // Draw stuff
+    //         tv.P();
+    //         EACH(t, f => f());
+    //         tv.C()
+    //         .O(0.25)
+    //         .F(this.COLOR)
+    //         .W(this.COLOR,2/32);
+    //         tv.P(`M ${FIX(l)} ${FIX(u)} L ${FIX(r)} ${FIX(u)} W #0f0 4`);
+    //     })
+    //     return tv.CVS
+    // }
 }, "ENT");
 
 MAKE("WOOD", [["TV",null]],{
@@ -1196,7 +1200,9 @@ MAKE("WORLD", [
     ["STRIPES", []],
     ["ENTITIES", []],
     ["LANDSCAPE", []],
-    ["INTERACTIVE",[]]
+    ["INTERACTIVE",[]],
+    ["SOUNDTRACK", null],
+    ["MELODY", null]
 ],
 {
     GENERATE(s) {
@@ -1207,6 +1213,8 @@ MAKE("WORLD", [
         // BEGIN DEBUGGING
         console.log("Generating world and setting SEED", s, rand.SEED());
         // END DEBUGGING
+        this.SOUNDTRACK = SOUNDTRACK();
+        this.MELODY = MELODY();
         let r = 16;
         this.MOONS = STRIPE(28, (y) => new AREA()
             .GENERATE(12)
@@ -1258,6 +1266,8 @@ MAKE("WORLD", [
                 x.ENTITIES.push(v);
                 v.AREA.push(x);
             });
+            x.SOUNDTRACK = SOUNDTRACK();
+            x.MELODY = MELODY();
         });
         this.ENTITIES.push(
           ...MAP(this.AREAS, (x) => x.ENTITIES)
@@ -1320,6 +1330,7 @@ MAKE("WORLD", [
     UPDATE(_) {
         let t = _ / 1000;
         PLAYER.AREA = this.AREAS.filter((a) => LEN(DIFF(a, PLAYER)) < a.RADIUS);
+        DJ.FRESH((PLAYER.AREA.find(x=>x.SOUNDTRACK) || this).SOUNDTRACK, (PLAYER.AREA.find(x=>x.MELODY) || this).MELODY);
         EACH(this.AREAS,x=>x.UPDATE(_));
         return this;
     },
