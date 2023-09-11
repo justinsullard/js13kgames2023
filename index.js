@@ -1185,7 +1185,7 @@ MAKE("GRASS",[
                 const c = (i+0.5)/l*PI;
                 const o = i%2;
                 return `L ${FIX(cos(c)*2 + (o ? rand.BIAS()/2 : 0))} ${o ? FIX(sin(c) * -a*2 + rand.BIAS()/2) : -0.5}`
-            }).join(" ") + ` L -2 0 C F ${this.COLOR}`; //" F #243 W #132 0.0625";
+            }).join(" ") + ` L -2 0 C F ${this.COLOR}  W #1324 0.0625`; //" F #243 W #132 0.0625";
             this.WIDTH = 4;
             this.HEIGHT = t*2;
             this.TV = SCREEN({ WIDTH: this.WIDTH * PXL * 4, HEIGHT: this.HEIGHT * PXL * 4, os: true });
@@ -1465,8 +1465,21 @@ MAKE("WORLD", [
             x.MELODY = MELODY();
             return x;
         });
-        // this.FIELDS = STRIPE(4)
-        this.AREAS = [...this.MOONS, ...this.VILLAGES]; //.sort(SCREENSORT);
+        this.FIELDS = STRIPE(3,i=>[
+                PUT(new AREA().GENERATE(16).MOVE([0,56,0]).ROT(PIZZA[16]*(i*2+2)),{
+                    MELODY:MELODY()
+                    // BEGIN DEBUGGING
+                    ,NAME: `FIELD ${i}`
+                    // END DEBUGGING
+                }),
+                PUT(new AREA().GENERATE(16).MOVE([0,56,0]).ROT(PIZZA[16]*(i*2+10)),{
+                    MELODY:MELODY()
+                    // BEGIN DEBUGGING
+                    ,NAME: `FIELD ${i+3}`
+                    // END DEBUGGING
+                })
+            ]).flat();
+        this.AREAS = [...this.MOONS, ...this.VILLAGES, ...this.FIELDS]; //.sort(SCREENSORT);
         EACH(this.MOONS, (x, i) => {
             x.NAME = `moon ${i}`;
             // x.ENTITIES.push(new PINE().GENERATE().MOVE(x))
@@ -1497,6 +1510,18 @@ MAKE("WORLD", [
             x.ENTITIES.push(f);
             f.AREA.push(x);
 
+            // POPULATE WITH VILLAGERS
+            STRIPE(3,i=>{
+                // const v = new (rand.PICK([PERSON,DEER,BISON]))().MOVE(
+                const v = new PERSON().MOVE(
+                    // x.COPY().MOVE(new ENT(0, 6 + rand.INT(6), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)))
+                    new ENT(0, 10 + rand.INT(2), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)).MOVE(x)
+                )
+                x.ENTITIES.push(v);
+                v.AREA.push(x);
+            });
+            // No landscaping on the final village
+            if (i===12) { return; }
             // Test grass
             STRIPE(32,i=>{
                 const p = new ENT(0,-x.RADIUS,0).ROT(PIZZA[32]*(i + rand.BIAS()/4));
@@ -1509,16 +1534,6 @@ MAKE("WORLD", [
                     this.LANDSCAPE.push(e);
                 }
             });
-            // POPULATE WITH VILLAGERS
-            STRIPE(3,i=>{
-                // const v = new (rand.PICK([PERSON,DEER,BISON]))().MOVE(
-                const v = new PERSON().MOVE(
-                    // x.COPY().MOVE(new ENT(0, 6 + rand.INT(6), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)))
-                    new ENT(0, 10 + rand.INT(2), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)).MOVE(x)
-                )
-                x.ENTITIES.push(v);
-                v.AREA.push(x);
-            });
         });
         this.ENTITIES.push(
           ...MAP(this.AREAS, (x) => x.ENTITIES)
@@ -1527,7 +1542,7 @@ MAKE("WORLD", [
         );
         this.MAP.DO((tv) => {
             tv.E().center();
-            EACH(this.AREAS, (a) => {
+            EACH(this.AREAS.filter(a=>!this.FIELDS.includes(a)), (a) => {
                 tv.P();
                 EACH(a.POINTS, (p, i) => (i ? tv.L : tv.M)(p[0] + a.x, p[1] + a.y));
                 tv.C()
@@ -1538,14 +1553,28 @@ MAKE("WORLD", [
                 .O(1);
             });
         });
-        // Start building the world from here
-        this.FLOOR
+        // WORLD MAP: Start building the world from here
+        const { FLOOR } = this;
+        FLOOR
             // Dark outer ring
             .P().A(128,128,108).W("#202",16).C()
             // The Water
             .P().A(128,102,40)
-            .F(this.FLOOR.GR(128, 128, 32, 128, 128, 256, ["hwb(250deg 14% 57%)", "hwb(220deg 65% 12%)"]));
-        // Drop the map down as a baseline
+            .F(this.FLOOR.GR(128, 128, 32, 128, 128, 256, ["hwb(250deg 14% 57%)", "hwb(220deg 65% 12%)"]))
+            // The Clouds
+            .P().A(128,164,22)
+            .F(this.FLOOR.GR(128, 164, 16, 128, 160, 30, ["#fff8", "#fff4"]))
+        // The fields
+        FLOOR.P();
+        // STRIPE(3,i=>{
+        //     const a = new ENT(0,56).ROT(PIZZA[16]*(i*2+2)).MOVE([128,128,128]);
+        //     const b = new ENT(0,56).ROT(PIZZA[16]*(i*2+10)).MOVE([128,128,128]);
+        //     FLOOR.M(a.x,a.y).A(a.x,a.y,16).M(b.x,b.y).A(b.x,b.y,16);
+        // });
+        EACH(this.FIELDS,a=>FLOOR.M(a.x+128,a.y+128).A(a.x+128,a.y+128,16));
+        FLOOR.F(FLOOR.GR(128,128,48,128,108,192,["#141","#263"]))
+
+            // Drop the map down as a baseline
         this.FLOOR.IMG(this.MAP.CVS,0,0,256,256);
         // Draw Moons
         const MOONSTAMP = PUT(new MOON(),{RADIUS:10});
@@ -1579,13 +1608,10 @@ MAKE("WORLD", [
     SAVE() {},
     LOAD() {},
     UPDATE(_) {
-        let t = _ / 1000;
         const areas = this.AREAS.filter((a) => LEN(DIFF(a, PLAYER)) < a.RADIUS);
         if (areas.find(x => !PLAYER.AREA.includes(x)) || PLAYER.AREA.find(x => !areas.includes(x))) {
-            // EMIT("AAH");
             PLAYER.AREA = areas;
             DJ?.FRESH?.((areas.find(x=>x.SOUNDTRACK) || this).SOUNDTRACK, (areas.find(x=>x.MELODY) || this).MELODY);    
-            // DJ?.FRESH?.(this.SOUNDTRACK, (areas.find(x=>x.MELODY) || this).MELODY);    
         }
         EACH(this.AREAS,x=>x.UPDATE(_));
         return this;
