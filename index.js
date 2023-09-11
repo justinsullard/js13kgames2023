@@ -533,11 +533,6 @@ MAKE("ENT", [
     INTERACT(){},
 }, "Array");
 
-MAKE("DRUM", [
-    ["ICON",null],
-    ["OK",[]],
-    ["DO",()=>{}]
-]);
 
 
 MAKE("TASK", [
@@ -1176,16 +1171,6 @@ MAKE("FLOWER",[
     }
 }, "ENT");
 
-MAKE("BASKET", [["TV",null]],{
-    DRAW(tv) {
-    }
-},"ENT");
-
-MAKE("CORN", [["TV",null]],{
-    DRAW(tv) {
-    }
-},"ENT");
-
 MAKE("GRASS",[
     ["PATH",""],
     ["TV", null],
@@ -1198,43 +1183,21 @@ MAKE("GRASS",[
         this.SEED = rand.DO(this.SEED,() => {
             const a = min(4, this.AGE = _ || this.AGE || rand()*3+1);
             const t = ceil(a);
-            // let b = 0, mw = 0, x = 0;
-            // let r = new ENT(-1, 0, 0);
             const l = 6*t+1;
-            const hl = FLOOR(l/2);
             this.PATH = `M 2 0 ` + STRIPE(l, i => {
                 const c = (i+0.5)/l*PI;
                 const o = i%2;
-                // const c = ((i+1) / (t+2));
-                return `L ${FIX(cos(c)*2 + (o ? rand.BIAS()/2 : 0))} ${o ? FIX(sin(c) * -t*2 + rand.BIAS()/2) : -0.5}`
-
-                // const s = (a - i) / (a - i + 3);
-                // const p = b - s / 0.125;
-                // const w = s * (t-i);
-                // const h = b + s + 0.5;
-                // const c = OF(a-i,t);
-                // const n = FIX(rand.BIAS()*c*s/2);
-                // mw = max(w, mw);
-                // const r = `M ${n} ${FIX(p)} L ${FIX(-w)} ${FIX(h)-rand()*c} L ${FIX(x)} ${FIX(b+0.25)} L ${FIX(w)} ${FIX(h)-rand()*c} L ${n} ${FIX(p)}`;
-                // x = n;
-                // b = p;
-                // return r;
+                return `L ${FIX(cos(c)*2 + (o ? rand.BIAS()/2 : 0))} ${o ? FIX(sin(c) * -a*2 + rand.BIAS()/2) : -0.5}`
             }).join(" ") + ` L -2 0 C F ${this.COLOR}`; //" F #243 W #132 0.0625";
-            // console.log(`GRASS PATH`, this.PATH);
             this.WIDTH = 4;
             this.HEIGHT = t*2;
             this.TV = SCREEN({ WIDTH: this.WIDTH * PXL * 4, HEIGHT: this.HEIGHT * PXL * 4, os: true });
-            // console.log("Pine generating new image", this.PATH, this.WIDTH, this.HEIGHT, this.TV.CVS.WIDTH, this.TV.CVS.HEIGHT);
             this.TV.DO((tv) => tv.S(PXL,PXL).T(this.WIDTH/2,this.HEIGHT).P(this.PATH));    
         });
         return this;
     },
     DRAW(tv, i) {
         if (!this.TV) { return; }
-        // tv.DO(() => {
-        //     this.PREP(tv);
-        //     tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH * 4, this.HEIGHT * 4);
-        // });
         if (!i) {
             tv.DO(() => {
                 this.PREP(tv);
@@ -1257,6 +1220,88 @@ MAKE("GRASS",[
     },
     INTERACT(e) {
         e.INVENTORY.push(PUT(new GRASS().GENERATE(1),{AGE:1}));
+        this.GENERATE(this.AGE -= 1);
+        EMIT("beat");
+    }
+}, "ENT");
+
+MAKE("BASKET", [["TV",null]],{
+    DRAW(tv) {
+    }
+},"ENT");
+
+MAKE("CORN", [["TV",null]],{
+    DRAW(tv) {
+    }
+},"ENT");
+
+MAKE("STICK", [["TV",null]],{
+    DRAW(tv) {
+        if (!this.TV) {
+            this.TV = SCREEN({ WIDTH:64, HEIGHT:64 }).P()
+                .M(...rand.XY(2,58)).L(...rand.XY(4,61)) // bottom left
+                .L(...rand.XY(61,9)).L(...rand.XY(58,6)) // top right
+                .C().F(rand.HWB(15,2, 17,2, 68,4)).P()
+                .M(...rand.XY(7,4)).L(...rand.XY(7,8)) // top left
+                .L(...rand.XY(58,61)).L(...rand.XY(61,58)) // bottom right
+                .L(...rand.XY(18,18)).L(...rand.XY(20,12)) // the nub
+                .L(...rand.XY(18,10)).L(...rand.XY(16,16))
+                .C().F(rand.HWB(15,2, 17,2, 68,4));
+        }
+        tv.IMG(this.TV.CVS,0,0,64,64);
+        return tv;
+    }
+},"ENT");
+
+MAKE("BUSH",[
+    ["PATH",""],
+    ["TV", null],
+    ["WIDTH",0],
+    ["HEIGHT",0],
+    ["NEXT",0],
+    ["COLOR", () => rand.HWB(105,2, 12,2, 65,2)]
+], {
+    GENERATE(_){
+        this.SEED = rand.DO(this.SEED,() => {
+            const a = min(4, this.AGE = _ || this.AGE || rand()*3+1);
+            const t = ceil(a);
+            const l = 2*t+1;
+            this.PATH = `M 2 0 ` + STRIPE(l, i => {
+                const c = (i+0.5)/l*PI;
+                const o = i%2;
+                return `L ${FIX(cos(c)*2.75 + rand.BIAS()/2)} ${FIX(sin(c) * -a + rand.BIAS()/4)}`
+            }).join(" ") + ` L -2 0 C F ${this.COLOR} W #1324 0.125`; //" F #243 W #132 0.0625";
+            this.WIDTH = 6;
+            this.HEIGHT = t*2;
+            this.TV = SCREEN({ WIDTH: this.WIDTH * PXL * 4, HEIGHT: this.HEIGHT * PXL * 4, os: true });
+            this.TV.DO((tv) => tv.S(PXL,PXL).T(this.WIDTH/2,this.HEIGHT).P(this.PATH));    
+        });
+        return this;
+    },
+    DRAW(tv, i) {
+        if (!this.TV) { return; }
+        if (!i) {
+            tv.DO(() => {
+                this.PREP(tv);
+                tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH * 4, this.HEIGHT * 4);
+            });
+        } else {
+            tv.IMG(this.TV.CVS,0,0,64*4,64*4);
+        }
+        return this;
+    },
+    UPDATE(_) {
+        this.NEXT = this.NEXT || 4 + rand.INT(284);
+        if (TCK >= this.NEXT && this.AGE < 4) {
+            this.GENERATE(this.AGE + (rand()+1) / 8);
+            this.NEXT = TCK + 576;
+        }
+    },
+    CAN(e) {
+        return this.AGE > 2 && this.DIFF(e).LEN() <= 4;
+    },
+    INTERACT(e) {
+        e.INVENTORY.push(new STICK());
         this.GENERATE(this.AGE -= 1);
         EMIT("beat");
     }
@@ -1306,6 +1351,13 @@ MAKE("BOAT", [["TV",null]],{
     }
 },"ENT");
 
+MAKE("DRUM", [
+    ["ICON",null],
+    ["OK",[]],
+    ["DO",()=>{}]
+], {
+
+}, "ENT");
 
 
 
@@ -1449,16 +1501,27 @@ MAKE("WORLD", [
             f.AREA.push(x);
 
             // Test grass
-            EACH(x.POINTS, p => {
+            STRIPE(32,i=>{
+                const p = new ENT(0,-x.RADIUS,0).ROT(PIZZA[32]*i);
                 const s = this.AREAS.filter(a=>p.COPY().MOVE(x).DIFF(a).LEN()<=a.RADIUS+0.05).length;
                 if (s < 2) {
                     // THIS IS AN EDGE POINT
-                    const e = new GRASS().GENERATE().MOVE(x).MOVE(p);
+                    const e = new (rand.bit() ? GRASS : BUSH)().GENERATE().MOVE(x).MOVE(p);
                     e.AREA.push(x);
                     x.LANDSCAPE.push(e);
                     this.LANDSCAPE.push(e);
                 }
             });
+            // EACH(x.POINTS, p => {
+            //     const s = this.AREAS.filter(a=>p.COPY().MOVE(x).DIFF(a).LEN()<=a.RADIUS+0.05).length;
+            //     if (s < 2) {
+            //         // THIS IS AN EDGE POINT
+            //         const e = new GRASS().GENERATE().MOVE(x).MOVE(p);
+            //         e.AREA.push(x);
+            //         x.LANDSCAPE.push(e);
+            //         this.LANDSCAPE.push(e);
+            //     }
+            // });
 
 
 
