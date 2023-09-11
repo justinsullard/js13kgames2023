@@ -46,7 +46,7 @@ const EACH = (x, f) => x.forEach?.(f);
 const MAP = (x, f) => x.map(f);
 const SCREENSORT = (a, b) => a.y - b.y || a.z - b.z || a.x - b.x;
 
-// EaSING functions
+// Easing functions
 const EOB = x => 1 + 2.70158 * ((x - 1) ** 3) + 1.70158 * ((x - 1) ** 2);
 // const EOC = x => 1 - (1 - x)**3;
 const EIB = x => x * x * (2.70158 * x - 1.70158);
@@ -562,6 +562,7 @@ MAKE("ACT", [
     ["d", 0],
     ["SPEEDLIMIT", 2],
     ["INVENTORY", []],
+    ["MAXINVENTORY", 1],
     ["DRUMS", []],
     ["LASTSTEP", 0],
     ["PROJECTED",[0,0,0]],
@@ -834,7 +835,7 @@ MAKE("PERSON",[
                 // PUT(new TASK(), { TCK: d+16 + rand.INT(16), TARGET: MOVE(NORM(m, -2), a) }),
                 // PUT(new TASK(), { TCK: d+64 + rand.INT(16), TARGET: this.HOME }),
                 PUT(new TASK(), { TCK: d+288 + rand.INT(16), TARGET: MOVE(SCALE(m, (l-2)/l), this) }),
-                PUT(new TASK(), { TCK: d+416 + rand.INT(16), TARGET: this.HOME }),
+                PUT(new TASK(), { TCK: d+528 + rand.INT(16), TARGET: this.HOME }),
                 PUT(new TASK(), { TCK: d+575 })
             ].filter(x=>x.TCK >= TCK);
         }
@@ -1355,9 +1356,6 @@ MAKE("DRUM", [
 
 }, "ENT");
 
-
-
-
 const FLAME = new Map();
 MAKE("FIRE",[
     ["LOG", () => new WOOD()],
@@ -1456,14 +1454,17 @@ MAKE("WORLD", [
             .MOVE([r * 6, 0, 0])
             .ROT(y * PIZZA[28] - PIZZA[4])
         );
-        this.VILLAGES = STRIPE(13, (i) =>
-            i < 10
+        this.VILLAGES = STRIPE(13, (i) => {
+            const x = i < 10
                 ? new AREA()
                     .GENERATE(18)
                     .MOVE([80, 0, 0])
                     .ROT(PIZZA[10] * (i + 2.5))
-                : new AREA().GENERATE(18).MOVE([0, (i - 11) * r * 2.5, 0])
-        );
+                : new AREA().GENERATE(18).MOVE([0, (i - 11) * r * 2.5, 0]);
+            x.SOUNDTRACK = SOUNDTRACK();
+            x.MELODY = MELODY();
+            return x;
+        });
         // this.FIELDS = STRIPE(4)
         this.AREAS = [...this.MOONS, ...this.VILLAGES]; //.sort(SCREENSORT);
         EACH(this.MOONS, (x, i) => {
@@ -1498,7 +1499,7 @@ MAKE("WORLD", [
 
             // Test grass
             STRIPE(32,i=>{
-                const p = new ENT(0,-x.RADIUS,0).ROT(PIZZA[32]*(i + rand.BIAS()/2));
+                const p = new ENT(0,-x.RADIUS,0).ROT(PIZZA[32]*(i + rand.BIAS()/4));
                 const s = this.AREAS.filter(a=>p.COPY().MOVE(x).DIFF(a).LEN()<=a.RADIUS+0.05).length;
                 if (s < 2) {
                     // THIS IS AN EDGE POINT
@@ -1508,20 +1509,7 @@ MAKE("WORLD", [
                     this.LANDSCAPE.push(e);
                 }
             });
-            // EACH(x.POINTS, p => {
-            //     const s = this.AREAS.filter(a=>p.COPY().MOVE(x).DIFF(a).LEN()<=a.RADIUS+0.05).length;
-            //     if (s < 2) {
-            //         // THIS IS AN EDGE POINT
-            //         const e = new GRASS().GENERATE().MOVE(x).MOVE(p);
-            //         e.AREA.push(x);
-            //         x.LANDSCAPE.push(e);
-            //         this.LANDSCAPE.push(e);
-            //     }
-            // });
-
-
-
-            // POPULATE WITH ENTITIES
+            // POPULATE WITH VILLAGERS
             STRIPE(3,i=>{
                 // const v = new (rand.PICK([PERSON,DEER,BISON]))().MOVE(
                 const v = new PERSON().MOVE(
@@ -1531,8 +1519,6 @@ MAKE("WORLD", [
                 x.ENTITIES.push(v);
                 v.AREA.push(x);
             });
-            x.SOUNDTRACK = SOUNDTRACK();
-            x.MELODY = MELODY();
         });
         this.ENTITIES.push(
           ...MAP(this.AREAS, (x) => x.ENTITIES)
@@ -1557,7 +1543,7 @@ MAKE("WORLD", [
             // Dark outer ring
             .P().A(128,128,108).W("#202",16).C()
             // The Water
-            .P().A(128,112,48)
+            .P().A(128,102,40)
             .F(this.FLOOR.GR(128, 128, 32, 128, 128, 256, ["hwb(250deg 14% 57%)", "hwb(220deg 65% 12%)"]));
         // Drop the map down as a baseline
         this.FLOOR.IMG(this.MAP.CVS,0,0,256,256);
@@ -1850,7 +1836,7 @@ const MAIN = (t = 0) => {
                 // `Turning (${FXD(PLAYER.TURNING?.LEN?.() || 0)}) ${PLAYER.TURNING.map(x => FXD(x))}`,
                 `Camera (${FXD(CAMERA.x)}, ${FXD(CAMERA.y)}, ${FXD(CAMERA.z)})`,
                 `Tick ${TCK} Measure ${measure + 1}.${FXD(beat + step + 1,1)}`,
-                `Area ${PLAYER.AREA?.map?.(x=>x.NAME).join(", ") || "misSING"}`,
+                `Area ${PLAYER.AREA?.map?.(x=>x.NAME).join(", ") || "missing"}`,
                 `fps ${FXD(1000 / d,1)} ${FXD(performance.now() - start,3)}`,
             ], ((x, i) => TV.ctx.fillText(x, 16, H1 - 16 - i * 16)));
             TV.IMG(world.FLOOR.CVS,0,0,256,256);
