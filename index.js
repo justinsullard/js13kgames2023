@@ -173,7 +173,7 @@ const SOUNDTRACK = () => {
         ...STRIPE(13, (i) => {
             let q = rand.PICK(a);
             a = a.filter(x => x !== q);
-            return [q, rand() * 0.2, rand.BIAS(), SONG(1 + rand.INT(), rand.INT(15))];
+            return [q, 0.05 + (rand() * 0.15), rand.BIAS(), SONG(1 + rand.INT(), rand.INT(15))];
         })
     ];
 };
@@ -203,7 +203,7 @@ const BEAT = (c, d, q, v, a, t, l, b) => {//context, frequency, volume, angleOfP
     let g = c.createGain();
     let p = c.createStereoPanner();
     let s = c.createDynamicsCompressor();
-    let w = l || v;
+    let w = FIX(l || v);
     o.frequency.setValueAtTime(q, t);
     o.frequency.exponentialRampToValueAtTime(q / 1.5, t + 0.5);
     // o.frequency.exponentialRampToValueAtTime(q / 1.25, t + 0.5);
@@ -852,14 +852,10 @@ MAKE("PERSON",[
         if (!this.READY && !this.NEEDS.length) {
             EMIT("AAH");
             this.READY = 1;
-            const t = TCK % 576;
-            if (t < 400) {
-                const d = TCK - t;
-                const a = this.AREA[0];10
-                const m = DIFF(a, this);
-                const l = LEN(m);
-                this.SCHEDULE.push(PUT(new TASK(), { TCK: TCK + 1 + rand.INT(8), TARGET: MOVE(SCALE(m, (l-2)/l), this) }));
-            }
+            const a = this.AREA[0];10
+            const m = DIFF(a, this);
+            const l = LEN(m);
+            this.SCHEDULE.push(PUT(new TASK(), { TCK: TCK + 1 + rand.INT(8), TARGET: MOVE(SCALE(m, (l-2)/l), this) }));
         }
         const NEEDS = MAP(this.NEEDS,x=>e.INVENTORY.find(y=>IS(y,x))).filter(x=>x);
         if (NEEDS.LENGTH) {
@@ -1006,7 +1002,7 @@ MAKE("AREA", [
     ["LANDSCAPE",[]],
     // ["VISIBLE", 0],
     // ["DEBUG",null],
-    // ["SOUNDTRACK",null],
+    ["SOUNDTRACK",null],
     ["MELODY",null],
 ], {
     GENERATE(r = 16) {
@@ -1502,7 +1498,7 @@ MAKE("WORLD", [
 
             // Test grass
             STRIPE(32,i=>{
-                const p = new ENT(0,-x.RADIUS,0).ROT(PIZZA[32]*i);
+                const p = new ENT(0,-x.RADIUS,0).ROT(PIZZA[32]*(i + rand.BIAS()/2));
                 const s = this.AREAS.filter(a=>p.COPY().MOVE(x).DIFF(a).LEN()<=a.RADIUS+0.05).length;
                 if (s < 2) {
                     // THIS IS AN EDGE POINT
