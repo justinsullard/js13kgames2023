@@ -539,18 +539,6 @@ MAKE("DRUM", [
     ["DO",()=>{}]
 ]);
 
-// FIRE => HOUR > 0.5 && READY ? DRUM : ACCEPT
-
-
-// STONE => REMOVE + STONE
-// GRASS => SHRINK + GRASS
-// BUSH => SHRINK + STICK
-// FLOWER => SHRINK + FLOWER
-// DEER => SLEEP + DEER
-// BISON => SLEEP + DEER
-// PINE => SHRINK + WOOD
-// OAK => SHRINK + WOOD
-
 
 MAKE("TASK", [
     ["TCK", 0],
@@ -1084,7 +1072,7 @@ MAKE("PINE",[
                 x = n;
                 b = p;
                 return r;
-            }).join(" ") + ` F ${this.COLOR} S #1218`; //" F #243 W #132 0.0625";
+            }).join(" ") + ` F ${this.COLOR}`; //" F #243 W #132 0.0625";
             this.WIDTH = ceil(mw*2);
             this.HEIGHT = ceil(abs(b));
             this.TV = SCREEN({ WIDTH: this.WIDTH * PXL * 4, HEIGHT: this.HEIGHT * PXL * 4, os: true });
@@ -1112,9 +1100,7 @@ MAKE("PINE",[
         return this.AGE > 2 && this.DIFF(e).LEN() <= 4; //TODO: Add drum requirement
     },
     INTERACT(e) {
-        // console.log("PINE INTERACT");
-        const f = PUT(new WOOD());
-        e.INVENTORY.push(f);
+        e.INVENTORY.push(new WOOD());
         this.GENERATE(this.AGE -= 1);
         EMIT("beat");
     }
@@ -1199,6 +1185,90 @@ MAKE("CORN", [["TV",null]],{
     DRAW(tv) {
     }
 },"ENT");
+
+MAKE("GRASS",[
+    ["PATH",""],
+    ["TV", null],
+    ["WIDTH",0],
+    ["HEIGHT",0],
+    ["NEXT",0],
+    ["COLOR", () => rand.HWB(120,2, 20,2, 67,2)]
+], {
+    GENERATE(_){
+        this.SEED = rand.DO(this.SEED,() => {
+            const a = min(4, this.AGE = _ || this.AGE || rand()*3+1);
+            const t = ceil(a);
+            // let b = 0, mw = 0, x = 0;
+            // let r = new ENT(-1, 0, 0);
+            const l = 6*t+1;
+            const hl = FLOOR(l/2);
+            this.PATH = `M 2 0 ` + STRIPE(l, i => {
+                const c = (i+0.5)/l*PI;
+                const o = i%2;
+                // const c = ((i+1) / (t+2));
+                return `L ${FIX(cos(c)*2 + (o ? rand.BIAS()/2 : 0))} ${o ? FIX(sin(c) * -t*2 + rand.BIAS()/2) : -0.5}`
+
+                // const s = (a - i) / (a - i + 3);
+                // const p = b - s / 0.125;
+                // const w = s * (t-i);
+                // const h = b + s + 0.5;
+                // const c = OF(a-i,t);
+                // const n = FIX(rand.BIAS()*c*s/2);
+                // mw = max(w, mw);
+                // const r = `M ${n} ${FIX(p)} L ${FIX(-w)} ${FIX(h)-rand()*c} L ${FIX(x)} ${FIX(b+0.25)} L ${FIX(w)} ${FIX(h)-rand()*c} L ${n} ${FIX(p)}`;
+                // x = n;
+                // b = p;
+                // return r;
+            }).join(" ") + ` L -2 0 C F ${this.COLOR}`; //" F #243 W #132 0.0625";
+            // console.log(`GRASS PATH`, this.PATH);
+            this.WIDTH = 4;
+            this.HEIGHT = t*2;
+            this.TV = SCREEN({ WIDTH: this.WIDTH * PXL * 4, HEIGHT: this.HEIGHT * PXL * 4, os: true });
+            // console.log("Pine generating new image", this.PATH, this.WIDTH, this.HEIGHT, this.TV.CVS.WIDTH, this.TV.CVS.HEIGHT);
+            this.TV.DO((tv) => tv.S(PXL,PXL).T(this.WIDTH/2,this.HEIGHT).P(this.PATH));    
+        });
+        return this;
+    },
+    DRAW(tv, i) {
+        if (!this.TV) { return; }
+        // tv.DO(() => {
+        //     this.PREP(tv);
+        //     tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH * 4, this.HEIGHT * 4);
+        // });
+        if (!i) {
+            tv.DO(() => {
+                this.PREP(tv);
+                tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH * 4, this.HEIGHT * 4);
+            });
+        } else {
+            tv.IMG(this.TV.CVS,0,0,64*4,64*4);
+        }
+        return this;
+    },
+    UPDATE(_) {
+        this.NEXT = this.NEXT || 4 + rand.INT(284);
+        if (TCK >= this.NEXT && this.AGE < 4) {
+            this.GENERATE(this.AGE + (rand()+1) / 8);
+            this.NEXT = TCK + 576;
+        }
+    },
+    CAN(e) {
+        return this.AGE > 2 && this.DIFF(e).LEN() <= 4;
+    },
+    INTERACT(e) {
+        e.INVENTORY.push(PUT(new GRASS().GENERATE(1),{AGE:1}));
+        this.GENERATE(this.AGE -= 1);
+        EMIT("beat");
+    }
+}, "ENT");
+
+// STONE => REMOVE + STONE
+// GRASS => SHRINK + GRASS
+// BUSH => SHRINK + STICK
+// FLOWER => SHRINK + FLOWER
+// DEER => SLEEP + DEER
+// BISON => SLEEP + DEER
+// PINE => SHRINK + WOOD
 
 MAKE("MEDICINE", [["TV",null]],{
     DRAW(tv) {
@@ -1377,6 +1447,21 @@ MAKE("WORLD", [
             f.DRUM = this.DRUMS[i];
             x.ENTITIES.push(f);
             f.AREA.push(x);
+
+            // Test grass
+            EACH(x.POINTS, p => {
+                const s = this.AREAS.filter(a=>p.COPY().MOVE(x).DIFF(a).LEN()<=a.RADIUS+0.05).length;
+                if (s < 2) {
+                    // THIS IS AN EDGE POINT
+                    const e = new GRASS().GENERATE().MOVE(x).MOVE(p);
+                    e.AREA.push(x);
+                    x.LANDSCAPE.push(e);
+                    this.LANDSCAPE.push(e);
+                }
+            });
+
+
+
             // POPULATE WITH ENTITIES
             STRIPE(3,i=>{
                 // const v = new (rand.PICK([PERSON,DEER,BISON]))().MOVE(
