@@ -409,7 +409,7 @@ SCREEN = ({
     S.WP = (c, w, p) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.stroke(p); return S; };
     S.IMG = (...p) => { ctx.drawImage(...p); return S; };
     S.E();
-    S.DRAW = (e) => e.DRAW(S);
+    S.DRAW = (e,i) => e.DRAW(S,i);
     return S;
 };
 
@@ -519,8 +519,9 @@ MAKE("ENT", [
         let [x, y, ys] = this.PERSPECTIVE();
         x *= ys * PXL;
         y *= ys * PXL;
-        const m = a ? - PXL * 2 * ys : 0;
-        return new ENT(x + TV.W2, y + TV.H2 + m, 2 * ys * (a ? PXL : 1));
+        const s = this.WIDTH === 1 ? 1 : 2;
+        const m = a ? -PXL * s * ys : 0;
+        return new ENT(x + TV.W2, y + TV.H2 + m, s * ys * (a ? PXL : 1));
     },
     CLICKAREA() {
         const [x,y,z] = this.PROJECT();
@@ -868,6 +869,33 @@ MAKE("PERSON",[
     }
 },"ACT");
 
+MAKE("ANIMAL",[["HOME",null],["ALIVE",1]],{
+    THINK() {
+        if (!this.HOME) {
+            this.HOME = this.POS();
+        }
+        if (!this.ALIVE) { return; } // Don't do anything until your needs are met.
+        if (!this.SCHEDULE?.length) {
+            const t = TCK % 576;
+            const d = TCK - t;
+
+            const a = this.AREA[0];
+            const m = this.DIFF(a);
+            const l = LEN(m);
+            const r = PIZZA[14];
+            const s = 588/14;
+            this.SCHEDULE = STRIPE(14,
+                i => PUT(new TASK(), {
+                    TCK: d+i*s+rand.INT(4),
+                    STOP: d + i*s + s-1,
+                    TARGET: m.COPY().ROT(r*(i+rand()/8)).MOVE(a)
+                })
+            ).filter(x=>x.TCK >= TCK);
+        }
+        return this;
+    },
+},"ACT")
+
 MAKE("DEER", [], {
     DRAW(tv) {
         tv.DO(() => {
@@ -914,8 +942,8 @@ MAKE("DEER", [], {
                 .W("#620", 0.125);
 
         });
-    }
-}, "ACT");
+    },
+}, "ANIMAL");
 
 MAKE("BISON", [], {
     DRAW(tv, h, lightx, lighty) {
@@ -957,15 +985,15 @@ MAKE("BISON", [], {
                 .L(1, -2.25 + ly / 4) // neck
                 .L(1.5, -2.5 + ly / 4) // ear
                 .C()
-                .stroke("#620", 1 / 8)
+                .W("#620", 1 / 8)
                 .F("#840")
             tv.P()
                 .A(2, -2.25 + ly / 4, 3/4, PIZZA[2], PIZZA[2]+PIZZA[7]) // horn
-                .stroke("#620", 0.125);
+                .W("#620", 0.125);
 
         });
     }
-}, "ACT");
+}, "ANIMAL");
 
 MAKE("MOON", [
     ["PHASE", 0],
@@ -1184,8 +1212,8 @@ MAKE("GRASS",[
             this.PATH = `M 2 0 ` + STRIPE(l, i => {
                 const c = (i+0.5)/l*PI;
                 const o = i%2;
-                return `L ${FIX(cos(c)*2 + (o ? rand.BIAS()/2 : 0))} ${o ? FIX(sin(c) * -a*2 + rand.BIAS()/2) : -0.5}`
-            }).join(" ") + ` L -2 0 C F ${this.COLOR}  W #1324 0.0625`; //" F #243 W #132 0.0625";
+                return `L ${FIX(cos(c)*2 + (o ? rand.BIAS()/8 : 0))} ${o ? FIX(sin(c) * -a*2 + rand.BIAS()/2) : -0.5}`
+            }).join(" ") + ` L -2 0 C F ${this.COLOR}`; //  W #1324 0.0625`;
             this.WIDTH = 4;
             this.HEIGHT = t*2;
             this.TV = SCREEN({ WIDTH: this.WIDTH * PXL * 4, HEIGHT: this.HEIGHT * PXL * 4, os: true });
@@ -1224,6 +1252,29 @@ MAKE("GRASS",[
 
 MAKE("BASKET", [["TV",null]],{
     DRAW(tv) {
+        if (!this.TV) {
+            this.TV = SCREEN({ WIDTH:64, HEIGHT:64 }).P()
+                .M(...rand.XY(2,32))//top left of bowl
+                .B(0,64, 0,64, ...rand.XY(16,62))//left side of bowl
+                .L(...rand.XY(48,62))//bottom of bowl
+                .B(64,64, 64,64, ...rand.XY(62,32))//right side of bowl
+                .L(...rand.XY(48,32)).L(...rand.XY(48,12))//outside turn of right handle
+                .L(32,12).L(32,16) // inside turn of right handle
+                .L(...rand.XY(44,16)).L(...rand.XY(44,32))//inside of right handle
+                .L(...rand.XY(20,32)).L(...rand.XY(20,16)) // inside of left handle
+                .L(32,16).L(32,12) // inside turn of left handle
+                .L(...rand.XY(16,12)).L(...rand.XY(16,32))//outside turn of left handle
+                .C()
+                .F(rand.HWB(42,2, 26,2, 43,4))
+                .P()
+                .M(...rand.XY(14,38)).L(...rand.XY(28,58))
+                .M(...rand.XY(36,38)).L(...rand.XY(50,58))
+                .M(...rand.XY(52,38)).L(...rand.XY(38,58))
+                .M(...rand.XY(30,38)).L(...rand.XY(16,58))
+                .W("#4404", 2);
+        }
+        tv.IMG(this.TV.CVS,0,0,64,64);
+        return tv;
     }
 },"ENT");
 
@@ -1300,6 +1351,55 @@ MAKE("BUSH",[
     INTERACT(e) {
         e.INVENTORY.push(new STICK());
         this.GENERATE(this.AGE -= 1);
+        EMIT("beat");
+    }
+}, "ENT");
+
+MAKE("ROCK",[
+    ["TV",null],
+    ["COLOR", () => rand.HWB(32,3, 37,4, 55,4)]
+], {
+    GENERATE(){
+        this.SEED = rand.DO(this.SEED,() => {
+            this.TV = SCREEN({ WIDTH: 64, HEIGHT: 64, os: true }).DO(tv => tv
+                .P().M(...rand.XY(4,60, 3)).L(...rand.XY(9,32, 4))
+                .L(...rand.XY(16,16, 7)).L(...rand.XY(32,20, 8)).L(...rand.XY(48,16, 6))
+                .L(...rand.XY(53,32, 4)).L(...rand.XY(60,60, 3))
+                .L(57,64).L(7,64).C().F(this.COLOR).W("#332", 1)
+            );
+            this.WIDTH = 1;
+            this.HEIGHT = 1;
+            // this.PATH = `M 2 0 ` + STRIPE(7, i => {
+            //     const c = (i+0.5)/7*PI;
+            //     return `L ${FIX(cos(c)*2.75 + rand.BIAS()/2)} ${FIX(-sin(c) + rand.BIAS()/2)}`
+            // }).join(" ") + ` L -2 0 C F ${this.COLOR} W #1114 0.125`; //" F #243 W #132 0.0625";
+            // this.TV.DO((tv) => tv.S(PXL,PXL).T(this.WIDTH/2,this.HEIGHT).P(this.PATH));    
+        });
+        return this;
+    },
+    DRAW(tv, i) {
+        if (!this.TV) { this.GENERATE(); }
+        if (!i) {
+            tv.DO(() => {
+                this.PREP(tv);
+                tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH, this.HEIGHT);
+            });
+        } else {
+            tv.IMG(this.TV.CVS,0,0,64,64);
+        }
+        return this;
+    },
+    CAN(e) {
+        return this.DIFF(e).LEN() <= 4; // TODO: Inventory check first?
+    },
+    INTERACT(e) {
+        e.INVENTORY.push(this);
+        const [x,y]=this.POS();
+        world.GRID[y+128][x+128]=null;
+        const e1 = this.AREA[0].ENTITIES;
+        const e2 = world.ENTITIES;
+        e1.splice(e1.indexOf(this), 1);
+        e2.splice(e2.indexOf(this), 1);
         EMIT("beat");
     }
 }, "ENT");
@@ -1479,6 +1579,39 @@ MAKE("WORLD", [
                     // END DEBUGGING
                 })
             ]).flat();
+        // Assign fields
+        const BISONVILLAGE = this.VILLAGES[this.DRUMS.indexOf(BISON)];
+        const BISONFIELD = this.FIELDS.find(x=>x.DIFF(BISONVILLAGE).LEN()<x.RADIUS+BISONVILLAGE.RADIUS);
+        const DEERVILLAGE = this.VILLAGES[this.DRUMS.indexOf(DEER)];
+        const DEERFIELD = this.FIELDS.find(x=>x.DIFF(DEERVILLAGE).LEN()<x.RADIUS+DEERVILLAGE.RADIUS);
+        EACH(
+            [
+                [BISONFIELD,BISON,GRASS],
+                [DEERFIELD,DEER,PINE]
+            ],
+            ([f,E,L])=>{
+                f.ENTITIES.push(...STRIPE(7,i=>PUT(new E().MOVE([0,12,0]).ROT(PIZZA[7]*(i+rand()/8)).MOVE(f), { AREA:[f] })));
+                STRIPE(32,i=>{
+                    const p = new ENT(0,-f.RADIUS,0).ROT(PIZZA[32]*(i + rand.BIAS()/4));
+                    const s = this.VILLAGES.filter(a=>p.COPY().MOVE(f).DIFF(a).LEN()<=a.RADIUS+0.05).length;
+                    if (s < 1) {
+                        // THIS IS AN EDGE POINT
+                        const e = new (L)().GENERATE().MOVE(f).MOVE(p);
+                        e.AREA.push(f);
+                        f.LANDSCAPE.push(e);
+                        this.LANDSCAPE.push(e);
+                    } else {
+                        const e = new ROCK().GENERATE().MOVE(f).MOVE(p);
+                        e.AREA.push(f);
+                        f.ENTITIES.push(e);
+                        this.ENTITIES.push(e);
+                    }
+                });
+    
+            }
+        );
+
+
         this.AREAS = [...this.MOONS, ...this.VILLAGES, ...this.FIELDS]; //.sort(SCREENSORT);
         EACH(this.MOONS, (x, i) => {
             x.NAME = `moon ${i}`;
@@ -1693,6 +1826,8 @@ let CAMERA = new ENT(PLAYER.x, PLAYER.y + CAMERABACKP, PLAYER.z + CAMERAUPP);
 // BEGIN DEBUGGING
 let DEBUG = false;
 ON("key-i",()=>DEBUG=!DEBUG);
+// const basket = new BASKET();
+// const rock = new ROCK();
 // END DEBUGGING
 
 
@@ -1817,7 +1952,7 @@ const MAIN = (t = 0) => {
     //     })
     // }
     // MOUSE
-    TV.DO(() => TV.T(MOUSE.x-2,MOUSE.y-2).S(4,4).R(CIRCLE*ESIN(now%4000/4000)).FP("#2808",MOUSE.PATH));
+    TV.DO(() => TV.T(MOUSE.x-2,MOUSE.y-2).S(4,4).R(CIRCLE*ESIN(now%4000/4000)).FP("#280c",MOUSE.PATH));
     MOUSE.TARGET = PAUSED ? null : world.INTERACTIVE.find(x=>TV.ctx.isPointInPath(x.CLICKAREA(), MOUSE.x, MOUSE.y));
     if (MOUSE.TARGET) {
         TV.DO(() => {
@@ -1866,6 +2001,9 @@ const MAIN = (t = 0) => {
                 `fps ${FXD(1000 / d,1)} ${FXD(performance.now() - start,3)}`,
             ], ((x, i) => TV.ctx.fillText(x, 16, H1 - 16 - i * 16)));
             TV.IMG(world.FLOOR.CVS,0,0,256,256);
+            
+            // TV.DO(() => TV.T(H2,32).DRAW(rock, true));
+            // TV.DO(() => TV.T(H2,32).DRAW(basket));
         });
     }
     // END DEBUGGING
