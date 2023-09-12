@@ -534,8 +534,6 @@ MAKE("ENT", [
     INTERACT(){},
 }, "Array");
 
-
-
 MAKE("TASK", [
     ["TCK", 0],
     ["CHANGES", {}],
@@ -1419,6 +1417,14 @@ MAKE("MEDICINE", [["TV",null]],{
 
 MAKE("HATCHET", [["TV",null]],{
     DRAW(tv) {
+        if (!this.TV) {
+            this.TV = SCREEN({ WIDTH:64, HEIGHT:64 })
+                .P().A(24,24,20,PI/2,PI).L(...rand.XY(48,8)).C().F(rand.HWB(32,3, 37,4, 55,4))
+                .P().M(...rand.XY(24,8)).L(...rand.XY(20,12)).L(...rand.XY(59,61)).L(...rand.XY(61,59))
+                .C().F(rand.HWB(15,2, 17,2, 68,4));
+        }
+        tv.IMG(this.TV.CVS,0,0,64,64);
+        return tv;
     }
 },"ENT");
 
@@ -1826,6 +1832,7 @@ let CAMERA = new ENT(PLAYER.x, PLAYER.y + CAMERABACKP, PLAYER.z + CAMERAUPP);
 // BEGIN DEBUGGING
 let DEBUG = false;
 ON("key-i",()=>DEBUG=!DEBUG);
+// const hatchet = new HATCHET();
 // const basket = new BASKET();
 // const rock = new ROCK();
 // END DEBUGGING
@@ -2004,6 +2011,7 @@ const MAIN = (t = 0) => {
             
             // TV.DO(() => TV.T(H2,32).DRAW(rock, true));
             // TV.DO(() => TV.T(H2,32).DRAW(basket));
+            // TV.DO(() => TV.T(H2,32).DRAW(hatchet));
         });
     }
     // END DEBUGGING
