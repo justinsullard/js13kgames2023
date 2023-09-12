@@ -1401,14 +1401,6 @@ MAKE("ROCK",[
     }
 }, "ENT");
 
-// STONE => REMOVE + STONE
-// GRASS => SHRINK + GRASS
-// BUSH => SHRINK + STICK
-// FLOWER => SHRINK + FLOWER
-// DEER => SLEEP + DEER
-// BISON => SLEEP + DEER
-// PINE => SHRINK + WOOD
-
 MAKE("MEDICINE", [["TV",null]],{
     DRAW(tv) {
     }
@@ -1429,6 +1421,22 @@ MAKE("HATCHET", [["TV",null]],{
 
 MAKE("BOW", [["TV",null]],{
     DRAW(tv) {
+        if (!this.TV) {
+            this.TV = TILE(64)
+                .P().M(64,32).L(...rand.XY(52,25)).L(54,32).L(...rand.XY(52,39)) // Arrowhead
+                .C().F(rand.HWB(32,3, 37,4, 55,4))
+                .P().M(20,32).L(...rand.XY(17,28)) // top of feather
+                .L(0,28).L(4,32).L(0,36) // middle of feather
+                .L(...rand.XY(17,36)) // bottom of feather
+                .C().F("#fffc")
+                .P().M(3,32).L(59,32) // arrow body
+                .M(...rand.XY(20,4)).L(...rand.XY(20,60)) // String
+                .W(rand.HWB(15,2, 17,2, 68,4), 2)
+                .P().A(20,32, 29, -PI/2-1/8,PI/2+1/8) // bow body
+                .W(rand.HWB(15,2, 17,2, 68,4), 4)
+        }
+        tv.IMG(this.TV.CVS,0,0,64,64);
+        return tv;
     }
 },"ENT");
 
@@ -1454,6 +1462,28 @@ MAKE("SPEAR", [["TV",null]],{
 
 MAKE("DREAMCATCHER", [["TV",null]],{
     DRAW(tv) {
+        if (!this.TV) {
+            this.TV = TILE(64).P();
+            this.TV.DO(tv=>{
+                STRIPE(4,i=>{
+                    tv
+                    .M(...MOVE([32,28], ROT([0,26],PIZZA[12]*i)))
+                    .L(...MOVE([32,28], ROT([0,26],PIZZA[12]*(i+4))))
+                    .L(...MOVE([32,28], ROT([0,26],PIZZA[12]*(i+8))))
+                    .L(...MOVE([32,28], ROT([0,26],PIZZA[12]*i)))
+                });
+                tv.W("#ffcc",1)
+                    .P()
+                    .M(6,28).L(2,47) // left feather top and left
+                    .L(6,63).L(10,50).L(6,28) // left feather bottom and right
+                    .M(58,28).L(54,52) // right feather top and left
+                    .L(58,63).L(62,53).L(58,28) // right feather bottom and right
+                    .F("#fffc")
+                    .P().A(32,28,26).W(rand.HWB(15,2, 17,2, 68,4), 4)
+            });
+        }
+        tv.IMG(this.TV.CVS,0,0,64,64);
+        return tv;
     }
 },"ENT");
 
@@ -1840,6 +1870,8 @@ let CAMERA = new ENT(PLAYER.x, PLAYER.y + CAMERABACKP, PLAYER.z + CAMERAUPP);
 // BEGIN DEBUGGING
 let DEBUG = false;
 ON("key-i",()=>DEBUG=!DEBUG);
+// const dreamcatcher = new DREAMCATCHER();
+// const bow = new BOW();
 // const spear = new SPEAR();
 // const hatchet = new HATCHET();
 // const basket = new BASKET();
@@ -2022,6 +2054,8 @@ const MAIN = (t = 0) => {
             // TV.DO(() => TV.T(H2,32).DRAW(basket));
             // TV.DO(() => TV.T(H2,32).DRAW(hatchet));
             // TV.DO(() => TV.T(H2,32).DRAW(spear));
+            // TV.DO(() => TV.T(H2,32).DRAW(bow));
+            // TV.DO(() => TV.T(H2,32).DRAW(dreamcatcher));
         });
     }
     // END DEBUGGING
