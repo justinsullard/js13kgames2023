@@ -121,3 +121,15 @@ Got the drum-circle scheduled for the villagers after working out a couple of bu
 Got basic drum collection working, and while you can't see it the music switches between villages and the moon path, and collected drums add to the music (which really give a lot more dynamics to the sounds overall). Unfortunately the overall performance is starting to decline so a depth of field/fog effect is necessary. The initial pass is to simply cut off anything too far away and to use a small opacity shift to bring them into view. Adding a few layers of a low-res fog that gets upscaled on top of the back few layers should really sell it well, but hopefully not cover up the sky too much. It's those pesky tall trees that are the real concern.
 
 <img src="devlog.collectdrums.2023-09-10 07-42.gif">
+
+### 2023-09-11
+
+Got Deer and Bison fields generating, with a basic routine for now, but still no interaction. Added rocks and their collection, and working on the remainder of the necessary sprites to get drums rendering.
+
+Here we've got Deer and Rocks.
+
+<img src="devlog.deerrocks.2023-09-11 22-46.gif">
+
+And some Bison.
+
+<img src="devlog.bisonfield.2023-09-11 22-48.gif">
