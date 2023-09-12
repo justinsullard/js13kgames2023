@@ -642,10 +642,10 @@ MAKE("ACT", [
         }
         let endx = ROUND(this.x+adjust.x)+128,
         endy = ROUND(this.y+adjust.y)+128;
-        if (endx < 0 || endx > 255 || endy < 0 || endy > 256) {
-            console.log(`Bad end of movement`, endx, endy, this);
-            return;
-        }
+        // if (endx < 0 || endx > 255 || endy < 0 || endy > 256) {
+        //     console.log(`Bad end of movement`, endx, endy, this);
+        //     return;
+        // }
         if (begx !== endx || begy !== endy) {
             const o = world.GRID[endy][endx];
             if (o && o !== this) {
@@ -1359,12 +1359,11 @@ MAKE("ROCK",[
 ], {
     GENERATE(){
         this.SEED = rand.DO(this.SEED,() => {
-            this.TV = SCREEN({ WIDTH: 64, HEIGHT: 64, os: true }).DO(tv => tv
+            this.TV = TILE(64)
                 .P().M(...rand.XY(4,60, 3)).L(...rand.XY(9,32, 4))
                 .L(...rand.XY(16,16, 7)).L(...rand.XY(32,20, 8)).L(...rand.XY(48,16, 6))
                 .L(...rand.XY(53,32, 4)).L(...rand.XY(60,60, 3))
-                .L(57,64).L(7,64).C().F(this.COLOR).W("#332", 1)
-            );
+                .L(57,64).L(7,64).C().F(this.COLOR).W("#332", 1);
             this.WIDTH = 1;
             this.HEIGHT = 1;
             // this.PATH = `M 2 0 ` + STRIPE(7, i => {
@@ -1418,7 +1417,7 @@ MAKE("MEDICINE", [["TV",null]],{
 MAKE("HATCHET", [["TV",null]],{
     DRAW(tv) {
         if (!this.TV) {
-            this.TV = SCREEN({ WIDTH:64, HEIGHT:64 })
+            this.TV = TILE(64)
                 .P().A(24,24,20,PI/2,PI).L(...rand.XY(48,8)).C().F(rand.HWB(32,3, 37,4, 55,4))
                 .P().M(...rand.XY(24,8)).L(...rand.XY(20,12)).L(...rand.XY(59,61)).L(...rand.XY(61,59))
                 .C().F(rand.HWB(15,2, 17,2, 68,4));
@@ -1438,9 +1437,18 @@ MAKE("TEEPEE", [["TV",null]],{
     }
 },"ENT");
 
-
 MAKE("SPEAR", [["TV",null]],{
     DRAW(tv) {
+        if (!this.TV) {
+            this.TV = TILE(64)
+                .P().M(...rand.XY(3,8)).L(...rand.XY(6,3)).L(...rand.XY(48,45)).L(...rand.XY(45,48))
+                .C().F(rand.HWB(15,2, 17,2, 68,4))
+                .P().M(...rand.XY(63,63)).L(...rand.XY(59,47))
+                .L(...rand.XY(42,42)).L(...rand.XY(47,59))
+                .C().F(rand.HWB(32,3, 37,4, 55,4));
+        }
+        tv.IMG(this.TV.CVS,0,0,64,64);
+        return tv;
     }
 },"ENT");
 
@@ -1832,6 +1840,7 @@ let CAMERA = new ENT(PLAYER.x, PLAYER.y + CAMERABACKP, PLAYER.z + CAMERAUPP);
 // BEGIN DEBUGGING
 let DEBUG = false;
 ON("key-i",()=>DEBUG=!DEBUG);
+// const spear = new SPEAR();
 // const hatchet = new HATCHET();
 // const basket = new BASKET();
 // const rock = new ROCK();
@@ -2012,6 +2021,7 @@ const MAIN = (t = 0) => {
             // TV.DO(() => TV.T(H2,32).DRAW(rock, true));
             // TV.DO(() => TV.T(H2,32).DRAW(basket));
             // TV.DO(() => TV.T(H2,32).DRAW(hatchet));
+            // TV.DO(() => TV.T(H2,32).DRAW(spear));
         });
     }
     // END DEBUGGING
