@@ -6,7 +6,8 @@ const { minify } = require("uglify-js");
 const { Packer } = require("roadroller");
 const server = new StaticServer({ rootPath: '.', port: 9080 });
 
-const CHAR = "$ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijlmnopqrstuvwxyz".split("");
+// const CHAR = "$ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijlmnopqrstuvwxyz".split("");
+const CHAR = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijlmnopqrstuvwxyz".split("");
 
 const rename = (i) => {
     let r = i;
@@ -54,14 +55,17 @@ const build = async () => {
         // console.log("All possible replacement tokens", allTokens);
 
         // CUSTOM RENAMING OF UPPERCASE TOKENS
-        const tokens = [...new Set(code.match(/(?<![$.]])\b(?<!\[])[A-Z][A-Z0-9]+(?!\])\b/gm))].filter(x => !IGNORE.includes(x)).sort((a,b)=> b.length - a.length || (a < b ? 1 : -1)).reverse();
+        const tokens = [...new Set(code.match(/(?<![$.]])\b(?<!\[])[A-Z][A-Z0-9]{2,}(?!\])\b/gm))]
+            .filter(x => !IGNORE.includes(x))
+            .sort((a,b)=> a.length - b.length || (a < b ? 1 : -1))
+            .reverse();
 
         // console.log(`Replacing ${tokens.length} tokens: ${rename(0)} through ${rename(tokens.length)}`);
         // console.log(tokens.map((x,i)=>`${x} = ${rename(i)}`).join("\n"));
 
         // This method worked, but the updated method shaves just a little bit more off the mark
         // tokens.forEach((t, i) => code = code.replace(new RegExp(`\\b${t}\\b`, "gm"), () => `$${i.toString(16).toUpperCase()}`));
-        tokens.forEach((t, i) => code = code.replace(new RegExp(`(?<![$.]])\\b${t}\\b`, "gm"), () => `$_${i}`));
+        tokens.forEach((t, i) => code = code.replace(new RegExp(`(?<![$.]_])\\b${t}\\b`, "gm"), () => `$_${i}`));
         tokens.forEach((t, i) => code = code.replace(new RegExp(`\\$_${i}\\b`, "gm"), rename(i)));
         console.log(`${Buffer.byteLength(code, "utf8")} bytes tokenized`);
 
@@ -88,7 +92,6 @@ const build = async () => {
 
         code = await roadrollerit(code);
         console.log(`${Buffer.byteLength(code, "utf8")} bytes via roadroller`);
-
         await writeFile("./index.pack.js", code, "utf8");
         const html = await readFile("./index.html", "utf-8");
         const final = html

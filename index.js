@@ -17,6 +17,10 @@ let step = 0;
 let PAUSED = true;
 let RATE = 1;
 let PXL = 32;
+let CAMERABACK = 20;
+let CAMERAUP = -2;
+let CAMERABACKP = 4;
+let CAMERAUPP = -1/8;
 
 // Utilities
 const { cos, sin, min, max, sqrt, floor: FLOOR, ceil, round: ROUND, imul, abs, PI, sign: SIGN } = Math;
@@ -284,7 +288,7 @@ const SOUND = () => {
             c.currentTime
         );
     });
-    ON("beat", () => {
+    ON("BEAT", () => {
         const [q, v, a, p] = track[0];
         BEAT(c, d, Q[14], v, a, c.currentTime);
     });
@@ -364,7 +368,7 @@ SCREEN = ({
     S.center = () => { S.T(S.W2, S.H2); return S; }
     S.FX = (x = "none") => { ctx.filter = x; return S; }
     S.T = (x, y) => { ctx.translate(x, y); return S; }
-    S.R = (x, y) => { ctx.rotate(x, y); return S; }
+    S.R = (a) => { ctx.rotate(a); return S; }
     S.RR = (...p) => { ctx.roundRect(...p); return S; }
     S.M = (...p) => { ctx.moveTo(...p); return S; };
     S.L = (...p) => { ctx.lineTo(...p); return S; };
@@ -885,6 +889,34 @@ MAKE("ANIMAL",[["HOME",null],["ALIVE",1]],{
     },
 },"ACT")
 
+MAKE("PLANT",[
+    ["TV",null],
+    ["NEXT",0]
+],{
+    DRAW(tv, i) {
+        if (!this.TV) { return; }
+        if (!i) {
+            tv.DO(() => {
+                this.PREP(tv);
+                tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH * 4, this.HEIGHT * 4);
+            });
+        } else {
+            tv.IMG(this.TV.CVS,0,0,64,64);
+        }
+        return this;
+    },
+    CAN(e) {
+        return this.AGE > 2 && this.DIFF(e).LEN() <= 4;
+    },
+    UPDATE(_) {
+        this.NEXT = this.NEXT || 4 + rand.INT(284);
+        if (TCK >= this.NEXT && this.AGE < this.MAX) {
+            this.GENERATE(this.AGE + (rand()+1) / 8);
+            this.NEXT = TCK + 576;
+        }
+    },
+},"ENT");
+
 MAKE("DEER", [], {
     DRAW(tv) {
         tv.DO(() => {
@@ -1056,20 +1088,15 @@ MAKE("WOOD", [["TV",null]],{
 },"ENT");
 
 MAKE("PINE",[
-    ["PATH",""],
-    ["TV", null],
-    // ["WIDTH",0],
-    // ["HEIGHT",0],
-    ["NEXT",0],
-    // ["COLOR", () => `hwb(${ROUND(150 + rand.BIAS()*2)} ${ROUND(7 + rand()*5)}% ${ROUND(80 + rand.BIAS()*4)}%)`]
-    ["COLOR", () => rand.HWB(150,2, 10,6, 80,4)]
+    ["COLOR", () => rand.HWB(150,2, 10,6, 80,4)],
+    ["MAX",8]
 ], {
     GENERATE(_){
         this.SEED = rand.DO(this.SEED,() => {
-            const a = min(8, this.AGE = _ || this.AGE || rand()*4+3);
+            const a = min(this.MAX, this.AGE = _ || this.AGE || rand()*4+3);
             const t = ceil(a);
             let b = 0, mw = 0, x = 0;
-            this.PATH = STRIPE(t, i => {
+            const path = STRIPE(t, i => {
                 const s = (a - i) / (a - i + 3);
                 const p = b - s / 0.125;
                 const w = s * (t-i);
@@ -1084,36 +1111,20 @@ MAKE("PINE",[
             }).join(" ") + ` F ${this.COLOR}`; //" F #243 W #132 0.0625";
             this.WIDTH = ceil(mw*2);
             this.HEIGHT = ceil(abs(b));
-            this.TV = SCREEN({ WIDTH: this.WIDTH * PXL * 4, HEIGHT: this.HEIGHT * PXL * 4, os: true });
-            // console.log("Pine generating new image", this.PATH, this.WIDTH, this.HEIGHT, this.TV.CVS.WIDTH, this.TV.CVS.HEIGHT);
-            this.TV.DO((tv) => tv.S(PXL,PXL).T(this.WIDTH/2,this.HEIGHT).P(this.PATH));    
+            this.TV = TILE(this.WIDTH * PXL * 4, this.HEIGHT * PXL * 4)
+                .DO((tv) => tv.S(PXL,PXL).T(this.WIDTH/2,this.HEIGHT).P(path));
         });
         return this;
     },
-    DRAW(tv) {
-        if (!this.TV) { return; }
-        tv.DO(() => {
-            this.PREP(tv);
-            tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH * 4, this.HEIGHT * 4);
-        });
-        return this;
-    },
-    UPDATE(_) {
-        this.NEXT = this.NEXT || 4 + rand.INT(284);
-        if (TCK >= this.NEXT) {
-            this.GENERATE(this.AGE + (rand()+1) / 8);
-            this.NEXT = TCK + 576;
-        }
-    },
-    CAN(e) {
-        return this.AGE > 2 && this.DIFF(e).LEN() <= 4; //TODO: Add drum requirement
-    },
+    // CAN(e) {
+    //     return this.AGE > 2 && this.DIFF(e).LEN() <= 4; //TODO: Add drum requirement
+    // },
     INTERACT(e) {
         e.INVENTORY.push(new WOOD());
         this.GENERATE(this.AGE -= 1);
         EMIT("beat");
-    }
-}, "ENT");
+    },
+}, "PLANT");
 
 MAKE("FLOWER",[
     ["TV", null],
@@ -1188,19 +1199,15 @@ MAKE("FLOWER",[
 }, "ENT");
 
 MAKE("GRASS",[
-    ["PATH",""],
-    ["TV", null],
-    // ["WIDTH",0],
-    // ["HEIGHT",0],
-    ["NEXT",0],
-    ["COLOR", () => rand.HWB(120,2, 20,2, 67,2)]
+    ["COLOR", () => rand.HWB(120,2, 20,2, 67,2)],
+    ["MAX",4]
 ], {
     GENERATE(_){
         this.SEED = rand.DO(this.SEED,() => {
-            const a = min(4, this.AGE = _ || this.AGE || rand()*3+1);
+            const a = min(this.MAX, this.AGE = _ || this.AGE || rand()*3+1);
             const t = ceil(a);
             const l = 6*t+1;
-            this.PATH = `M 2 0 ` + STRIPE(l, i => {
+            const path = `M 2 0 ` + STRIPE(l, i => {
                 const c = (i+0.5)/l*PI;
                 const o = i%2;
                 return `L ${FIX(cos(c)*2 + (o ? rand.BIAS()/8 : 0))} ${o ? FIX(sin(c) * -a*2 + rand.BIAS()/2) : -0.5}`
@@ -1208,38 +1215,16 @@ MAKE("GRASS",[
             this.WIDTH = 4;
             this.HEIGHT = t*2;
             this.TV = SCREEN({ WIDTH: this.WIDTH * PXL * 4, HEIGHT: this.HEIGHT * PXL * 4, os: true });
-            this.TV.DO((tv) => tv.S(PXL,PXL).T(this.WIDTH/2,this.HEIGHT).P(this.PATH));    
+            this.TV.DO((tv) => tv.S(PXL,PXL).T(this.WIDTH/2,this.HEIGHT).P(path));    
         });
         return this;
-    },
-    DRAW(tv, i) {
-        if (!this.TV) { return; }
-        if (!i) {
-            tv.DO(() => {
-                this.PREP(tv);
-                tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH * 4, this.HEIGHT * 4);
-            });
-        } else {
-            tv.IMG(this.TV.CVS,0,0,64*4,64*4);
-        }
-        return this;
-    },
-    UPDATE(_) {
-        this.NEXT = this.NEXT || 4 + rand.INT(284);
-        if (TCK >= this.NEXT && this.AGE < 4) {
-            this.GENERATE(this.AGE + (rand()+1) / 8);
-            this.NEXT = TCK + 576;
-        }
-    },
-    CAN(e) {
-        return this.AGE > 2 && this.DIFF(e).LEN() <= 4;
     },
     INTERACT(e) {
         e.INVENTORY.push(PUT(new GRASS().GENERATE(1),{AGE:1}));
         this.GENERATE(this.AGE -= 1);
-        EMIT("beat");
+        EMIT("BEAT");
     }
-}, "ENT");
+}, "PLANT");
 
 MAKE("BASKET", [["TV",null]],{
     DRAW(tv) {
@@ -1269,10 +1254,85 @@ MAKE("BASKET", [["TV",null]],{
     }
 },"ENT");
 
-MAKE("CORN", [["TV",null]],{
+MAKE("EAR", [["TV",null]],{
     DRAW(tv) {
+        if (!this.TV) {
+            this.TV = SCREEN({ WIDTH:64, HEIGHT:64 }).DO(tv=>{
+                const t = rand.XY(32,2,2);
+                const g = rand.HWB(105,2, 12,2, 65,2);
+                tv.P()
+                    .M(...t)
+                    .B(60,4, 64,60, ...rand.XY(32,60,2))
+                    .B(0,60, 4,4, ...t)
+                    .F(rand.HWB(70,2, 25,2, 15,2))
+                    .P()
+                    .M(...rand.XY(32,6,2)).L(...rand.XY(32,50,2))
+                    .M(...rand.XY(16,16,2)).L(...rand.XY(48,16,2))
+                    .M(...rand.XY(16,32,2)).L(...rand.XY(48,32,2))
+                    .M(...rand.XY(16,48,2)).L(...rand.XY(48,48,2))
+                    .W("#641", 1)
+                    .P().M(32,64)
+                    .B(...rand.XY(26,24), ...rand.XY(16,24), ...rand.XY(2,14))
+                    .B(...rand.XY(8,64), ...rand.XY(4,54), 32,64)
+                    .B(...rand.XY(38,24), ...rand.XY(48,24), ...rand.XY(62,14))
+                    .B(...rand.XY(56,64), ...rand.XY(56,54), 32,64)
+                    .F(g);
+            });
+        }
+        tv.IMG(this.TV.CVS,0,0,64,64);
+        return tv;
     }
 },"ENT");
+
+MAKE("CORN", [
+    ["COLOR", () => rand.HWB(105,2, 12,2, 65,2)],
+    ["MAX",4],
+    ["EARS",[]]
+],{
+    GENERATE(_){
+        this.SEED = rand.DO(this.SEED,() => {
+            const a = min(this.MAX, this.AGE = _ || this.AGE || rand()*3+1);
+            this.EARS.length = 0;
+            this.EARS.push(...STRIPE(max(0,FLOOR(a - 1)), _=>new EAR()));
+            const h = min(a,3) * 2;
+            const f = rand.SIGN();
+            this.WIDTH = 4;
+            this.HEIGHT = ROUND(h+2);
+            this.TV = TILE(this.WIDTH*PXL*4, this.HEIGHT*PXL*4).DO(tv=>{
+                tv.S(PXL,PXL).T(2,this.HEIGHT)
+                    .P().M(0,-h).L(0,-1/8)
+                    .W(this.COLOR, 1/4);
+                    STRIPE(3, i=>tv.DO(t=>{
+                        if (i === 0) {
+                            tv.T(0,-h).R(rand.BIAS()/8);
+                        } else {
+                            tv.T(0,-h/2+rand.BIAS()/2).R(f*SIGN(1.5-i)*PIZZA[5]);
+                        }
+                        const e = this.EARS[i];
+                        if (e) {
+                            if (i===0) {
+                                tv.T(-1,-1);
+                            } else {
+                                tv.T(-1,-2);
+                            }
+                            tv.S(1/PXL,1/PXL).DRAW(e, true);
+                        } else {
+                            tv.P().M(0,0)
+                            .B(-1/2,-1/2, -1/2,-1/2, 0,-1)
+                            .B(1/2,-1/2, 1/2,-1/2, 0,0)
+                            .C().F(this.COLOR)
+                        }
+                    }));
+            });
+        });
+        return this;
+    },
+    INTERACT(e) {
+        e.INVENTORY.push(this.EARS.pop());
+        this.GENERATE(this.AGE -= 1);
+        EMIT("BEAT");
+    }
+},"PLANT");
 
 MAKE("STICK", [["TV",null]],{
     DRAW(tv) {
@@ -1293,58 +1353,31 @@ MAKE("STICK", [["TV",null]],{
 },"ENT");
 
 MAKE("BUSH",[
-    ["PATH",""],
-    ["TV", null],
-    // ["WIDTH",0],
-    // ["HEIGHT",0],
-    ["NEXT",0],
-    ["COLOR", () => rand.HWB(105,2, 12,2, 65,2)]
+    ["COLOR", () => rand.HWB(105,2, 12,2, 65,2)],
+    ["MAX",4]
 ], {
     GENERATE(_){
         this.SEED = rand.DO(this.SEED,() => {
-            const a = min(4, this.AGE = _ || this.AGE || rand()*3+1);
+            const a = min(this.MAX, this.AGE = _ || this.AGE || rand()*3+1);
             const t = ceil(a);
             const l = 2*t+1;
-            this.PATH = `M 2 0 ` + STRIPE(l, i => {
+            const path = `M 2 0 ` + STRIPE(l, i => {
                 const c = (i+0.5)/l*PI;
-                const o = i%2;
                 return `L ${FIX(cos(c)*2.75 + rand.BIAS()/2)} ${FIX(sin(c) * -a + rand.BIAS()/4)}`
             }).join(" ") + ` L -2 0 C F ${this.COLOR} W #1324 0.125`; //" F #243 W #132 0.0625";
             this.WIDTH = 6;
             this.HEIGHT = t*2;
             this.TV = SCREEN({ WIDTH: this.WIDTH * PXL * 4, HEIGHT: this.HEIGHT * PXL * 4, os: true });
-            this.TV.DO((tv) => tv.S(PXL,PXL).T(this.WIDTH/2,this.HEIGHT).P(this.PATH));    
+            this.TV.DO((tv) => tv.S(PXL,PXL).T(this.WIDTH/2,this.HEIGHT).P(path));    
         });
         return this;
-    },
-    DRAW(tv, i) {
-        if (!this.TV) { return; }
-        if (!i) {
-            tv.DO(() => {
-                this.PREP(tv);
-                tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH * 4, this.HEIGHT * 4);
-            });
-        } else {
-            tv.IMG(this.TV.CVS,0,0,64*4,64*4);
-        }
-        return this;
-    },
-    UPDATE(_) {
-        this.NEXT = this.NEXT || 4 + rand.INT(284);
-        if (TCK >= this.NEXT && this.AGE < 4) {
-            this.GENERATE(this.AGE + (rand()+1) / 8);
-            this.NEXT = TCK + 576;
-        }
-    },
-    CAN(e) {
-        return this.AGE > 2 && this.DIFF(e).LEN() <= 4;
     },
     INTERACT(e) {
         e.INVENTORY.push(new STICK());
         this.GENERATE(this.AGE -= 1);
-        EMIT("beat");
-    }
-}, "ENT");
+        EMIT("BEAT");
+    },
+}, "PLANT");
 
 MAKE("ROCK",[
     ["TV",null],
@@ -1390,7 +1423,7 @@ MAKE("ROCK",[
         const e2 = world.ENTITIES;
         e1.splice(e1.indexOf(this), 1);
         e2.splice(e2.indexOf(this), 1);
-        EMIT("beat");
+        EMIT("BEAT");
     }
 }, "ENT");
 
@@ -1572,8 +1605,8 @@ MAKE("FIRE",[
         }
     }
 }, "ENT")
-
-MAKE("WORLD", [
+// Trick roadroller and my build to generate the other classes first
+const ww = MAKE("WORLD", [
     ["SEED", 13],
     ["AGE", 0],
     ["DRUMS",[]],
@@ -1680,7 +1713,16 @@ MAKE("WORLD", [
     
             }
         );
-
+        const CORNVILLAGE = this.VILLAGES[this.DRUMS.indexOf(CORN)];
+        const CORNFIELD = this.FIELDS.reduce((r,f)=> r
+            ? (r.DIFF(CORNVILLAGE).LEN() > f.DIFF(CORNVILLAGE).LEN() && f.ENTITIES.length === 0 ? f : r)
+            : f, null);
+        STRIPE(13,i=>{
+            const p = new CORN().GENERATE().MOVE([4+rand.INT(7),0,0]).ROT(PIZZA[13]*i).MOVE(CORNFIELD);
+            p.AREA.push(CORNFIELD);
+            CORNFIELD.LANDSCAPE.push(p);
+            this.LANDSCAPE.push(p);
+        })
 
         this.AREAS = [...this.MOONS, ...this.VILLAGES, ...this.FIELDS]; //.sort(SCREENSORT);
         EACH(this.MOONS, (x, i) => {
@@ -1737,7 +1779,9 @@ MAKE("WORLD", [
                 const s = this.AREAS.filter(a=>p.COPY().MOVE(x).DIFF(a).LEN()<=a.RADIUS+0.05).length;
                 if (s < 2) {
                     // THIS IS AN EDGE POINT
-                    const e = new (rand.bit() ? GRASS : BUSH)().GENERATE().MOVE(x).MOVE(p);
+                    // const e = new (rand.bit() ? GRASS : BUSH).GENERATE().MOVE(x).MOVE(p);
+                    const e = rand.bit() ? new GRASS() : new BUSH();
+                    e.GENERATE().MOVE(x).MOVE(p);
                     e.AREA.push(x);
                     x.LANDSCAPE.push(e);
                     this.LANDSCAPE.push(e);
@@ -1887,26 +1931,23 @@ let shell = SHELL();
 let PLAYER = PUT(new PERSON(), { x: 0, y: 104, z: 0, shell, ORIENTATION: -1, COLOR:"#840", STROKE:"#620" });
 let MOUSE = new ENT();
 MOUSE.PATH = PATH().M(-2,-2).L(2,2).L(-2,2).L(2,-2).C();
-
 let world = new WORLD().GENERATE(13);
 // let world = new WORLD().GENERATE(Date.now());
 
 // let ground = STRIPE(11, y => new AREA().MOVE(y ? [0, -64, (1 - EHSIN(OF(y-1,9))) * 32 - 16] : [0, 0, 0]).ROT((y-0.5) * PIZZA[10]));
-let entities = [
-    // ...STRIPE(13, i => PUT(new BISON(), { y: -1 - i, x: rand.INT(16)-8 })),
-    // ...STRIPE(13, i => PUT(new PERSON(), { y: -1 - i, x: rand.INT(16) - 8 })),
-    // ...STRIPE(13, i => PUT(new DEER(), { y: -1 - i, x: rand.INT(16) - 8 })),
-];
-let CAMERABACK = 20;
-let CAMERAUP = -2;
-let CAMERABACKP = 4;
-let CAMERAUPP = -1/8;
+// let entities = [
+//     // ...STRIPE(13, i => PUT(new BISON(), { y: -1 - i, x: rand.INT(16)-8 })),
+//     // ...STRIPE(13, i => PUT(new PERSON(), { y: -1 - i, x: rand.INT(16) - 8 })),
+//     // ...STRIPE(13, i => PUT(new DEER(), { y: -1 - i, x: rand.INT(16) - 8 })),
+// ];
 let CAMERA = new ENT(PLAYER.x, PLAYER.y + CAMERABACKP, PLAYER.z + CAMERAUPP);
 
 // BEGIN DEBUGGING
 let DEBUG = false;
 ON("key-i",()=>DEBUG=!DEBUG);
-const teepee = new TEEPEE();
+
+// const corn = new CORN();
+// const teepee = new TEEPEE();
 // const dreamcatcher = new DREAMCATCHER();
 // const bow = new BOW();
 // const spear = new SPEAR();
@@ -2061,7 +2102,8 @@ const MAIN = (t = 0) => {
         // const s = "Click to play";
         // TV.ctx.fillText(s, TV.W2-TV.ctx.measureText(s).width/2, TV.H3);
         EACH([
-            "wasd + shift = move",
+            "wasd = move",
+            "shift = run",
             "esc = pause/resume",
             "mouse = interact",
             !DJ ? "click to play" : "- paused -"
@@ -2093,7 +2135,8 @@ const MAIN = (t = 0) => {
             // TV.DO(() => TV.T(H2,32).DRAW(spear));
             // TV.DO(() => TV.T(H2,32).DRAW(bow));
             // TV.DO(() => TV.T(H2,32).DRAW(dreamcatcher));
-            TV.DO(() => TV.T(H2,32).DRAW(teepee, true));
+            // TV.DO(() => TV.T(H2,32).DRAW(teepee, true));
+            // TV.DO(() => TV.T(H2,32).DRAW(corn, true));
         });
     }
     // END DEBUGGING

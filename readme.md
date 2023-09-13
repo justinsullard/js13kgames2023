@@ -141,3 +141,7 @@ The last day of development. WIth 12 hours to go until the deadline it's time to
 First, let's get the teepee going.
 
 <img src="devlog.teepee.2023-09-12 19-27.gif">
+
+Then we can add some corn (after fixing some build issues).
+
+<img src="devlog.corn.2023-09-12 23-50.gif">
