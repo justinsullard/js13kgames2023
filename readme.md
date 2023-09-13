@@ -133,3 +133,11 @@ Here we've got Deer and Rocks.
 And some Bison.
 
 <img src="devlog.bisonfield.2023-09-11 22-48.gif">
+
+### 2023-09-12
+
+The last day of development. WIth 12 hours to go until the deadline it's time to get down to the last few entities and plugging in functionality.
+
+First, let's get the teepee going.
+
+<img src="devlog.teepee.2023-09-12 19-27.gif">

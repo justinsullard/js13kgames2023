@@ -87,23 +87,12 @@ const SKYPATH = (h) => (EIOS(OF(h, 0.5)) * 2 - 1);
 
 // const LERP = (t, a, b) => a + (a - b) * t;
 // const LERPE = (p, a, b) => MAP(p, t=>LERP(t, a, b));
-const _WALK = t => [
+const WALK = t => [
     (min(2 * t, 0) - (1 - cos(t * CIRCLE))) / 2,
     // min(sin(t * CIRCLE), 0) / 2
     -EIS(-min(sin(t * CIRCLE), 0)) / 2
 ];
-const WALK = t => _WALK(t);
-// const TROT = t => _WALK(EIOB(t));
-// const GALLOP = t => _WALK(EIB((t + t * 3) / 4));
-
-// const LEAP = t => [
-//     // -EIOE(EHSIN(t)),
-//     // -EIOB(EHSIN(POF(t - 1 / 8, 3 / 4))),
-//     // -EHSIN(OF(t, 1 / 8)) - (EHSIN(POF(t - 1 / 8, 3 / 4))),
-
-//     -(sin(OF(t, 1 / 8) * PIZZA[4]) - EHSIN(POF(t - 1 / 8, 3 / 4)) - POF(t - 7 / 8, 1 / 8)),
-//     -EHSIN((OF(t, 1 / 8))) - (EHSIN(POF(t - 1 / 8, 3 / 4))),
-// ]
+// const WALK = t => _WALK(t);
 
 // randomization
 const RANDO = (SEED = 0) => {
@@ -491,7 +480,9 @@ MAKE("ENT", [
     ["z", 0],
     ["AGE", 0],
     ["AREA", []],
-    ["SEED",null]
+    ["SEED",null],
+    ["WIDTH",0],
+    ["HEIGHT",0]
 ], {
     COPY() { return new this.constructor(...this) },
     MOVE(x) { [this.x, this.y, this.z] = MOVE(this,x); return this },
@@ -1067,8 +1058,8 @@ MAKE("WOOD", [["TV",null]],{
 MAKE("PINE",[
     ["PATH",""],
     ["TV", null],
-    ["WIDTH",0],
-    ["HEIGHT",0],
+    // ["WIDTH",0],
+    // ["HEIGHT",0],
     ["NEXT",0],
     // ["COLOR", () => `hwb(${ROUND(150 + rand.BIAS()*2)} ${ROUND(7 + rand()*5)}% ${ROUND(80 + rand.BIAS()*4)}%)`]
     ["COLOR", () => rand.HWB(150,2, 10,6, 80,4)]
@@ -1130,12 +1121,14 @@ MAKE("FLOWER",[
     // ["COLOR",() => `hwb(${ROUND(180 + rand.BIAS()*4)} ${ROUND(30 + rand()*5)}% ${ROUND(55 + rand.BIAS()*4)}%)`],
     ["COLOR",() => rand.HWB(180,4, 33,3, 55,4)],
     ["LAST", -1],
-    ["WIDTH", 4],
-    ["HEIGHT", 4],
+    // ["WIDTH", 4],
+    // ["HEIGHT", 4],
     ["BLOOM",0]
 ], {
     GENERATE(){
         const b = this.BLOOM;
+        this.WIDTH=4;
+        this.HEIGHT=4;
         this.TV = this.TV ?? TILE(this.WIDTH * PXL * 4, this.HEIGHT * PXL * 4);
         const xo = rand.BIAS()/4;
         const y = b ? -2 : -1.5;
@@ -1197,8 +1190,8 @@ MAKE("FLOWER",[
 MAKE("GRASS",[
     ["PATH",""],
     ["TV", null],
-    ["WIDTH",0],
-    ["HEIGHT",0],
+    // ["WIDTH",0],
+    // ["HEIGHT",0],
     ["NEXT",0],
     ["COLOR", () => rand.HWB(120,2, 20,2, 67,2)]
 ], {
@@ -1302,8 +1295,8 @@ MAKE("STICK", [["TV",null]],{
 MAKE("BUSH",[
     ["PATH",""],
     ["TV", null],
-    ["WIDTH",0],
-    ["HEIGHT",0],
+    // ["WIDTH",0],
+    // ["HEIGHT",0],
     ["NEXT",0],
     ["COLOR", () => rand.HWB(105,2, 12,2, 65,2)]
 ], {
@@ -1440,8 +1433,41 @@ MAKE("BOW", [["TV",null]],{
     }
 },"ENT");
 
-MAKE("TEEPEE", [["TV",null]],{
-    DRAW(tv) {
+MAKE("TEEPEE", [
+    ["TV",null],
+    ["COLOR",() => rand.HWB(46,3, 30,5, 40,4)]
+],{
+    GENERATE() {
+        this.SEED = rand.DO(this.SEED,() => {
+            const t = rand.XY(32,16,5)
+            const d = rand.XY(32,38,3)
+            const x = rand.BIAS()*3;
+            const a = rand.HWB(10,3, 11,3, 50,4);
+            const b = this.COLOR;
+            const s = rand.HWB(46,3, 5,2, 75,4);
+            this.TV = TILE(512).S(8,8).DO(tv=>tv.P()
+                .M(3+x,64).L(...t).L(61+x,64)
+                .C().F(tv.GR(32,0,16, 32,-32,112, [a,b,b,b,a])).W(a,1/2)
+                .P().M(21+x,64).L(...d).L(43+x,64)
+                .C().F(s)
+                .P().M(t[0]-4,t[1]-7).L(...t).L(t[0]+5,t[1]-8).W(s,1)
+            );
+            this.WIDTH = 8;
+            this.HEIGHT = 8;
+        });
+        return this;
+    },
+    DRAW(tv, i) {
+        if (!this.TV) { this.GENERATE(); }
+        if (!i) {
+            tv.DO(() => {
+                this.PREP(tv);
+                tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH, this.HEIGHT);
+            });
+        } else {
+            tv.IMG(this.TV.CVS,0,0,64,64);
+        }
+        return this;
     }
 },"ENT");
 
@@ -1690,12 +1716,18 @@ MAKE("WORLD", [
             // POPULATE WITH VILLAGERS
             STRIPE(3,i=>{
                 // const v = new (rand.PICK([PERSON,DEER,BISON]))().MOVE(
+                const r = PIZZA[3]*(i+rand.BIAS()/8);
+                const o = 10 + rand.INT(2);
                 const v = new PERSON().MOVE(
                     // x.COPY().MOVE(new ENT(0, 6 + rand.INT(6), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)))
-                    new ENT(0, 10 + rand.INT(2), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)).MOVE(x)
-                )
-                x.ENTITIES.push(v);
-                v.AREA.push(x);
+                    new ENT(0, o, 0).ROT(r).MOVE(x)
+                );
+                const t = new TEEPEE().MOVE(
+                    new ENT(0, o+2, 0).ROT(r+PIZZA[32]*rand.SIGN()).MOVE(x)
+                );
+                EACH(([t,v])=>e=>{const {x,y}=this.POS();PUT(e,{x,y})});
+                x.ENTITIES.push(v, t);
+                EACH([t,v],e=>e.AREA.push(x));
             });
             // No landscaping on the final village
             if (i===12) { return; }
@@ -1779,6 +1811,10 @@ MAKE("WORLD", [
             e.y=ZROUND(e.y);
             e.x=ZROUND(e.x);
             this.GRID[e.y+128][e.x+128]=e;
+            if (IS(e,TEEPEE)) {
+                this.GRID[e.y+128][e.x+127]=e;
+                this.GRID[e.y+128][e.x+129]=e;
+            }
         });
         return this;
     },
@@ -1870,6 +1906,7 @@ let CAMERA = new ENT(PLAYER.x, PLAYER.y + CAMERABACKP, PLAYER.z + CAMERAUPP);
 // BEGIN DEBUGGING
 let DEBUG = false;
 ON("key-i",()=>DEBUG=!DEBUG);
+const teepee = new TEEPEE();
 // const dreamcatcher = new DREAMCATCHER();
 // const bow = new BOW();
 // const spear = new SPEAR();
@@ -2056,6 +2093,7 @@ const MAIN = (t = 0) => {
             // TV.DO(() => TV.T(H2,32).DRAW(spear));
             // TV.DO(() => TV.T(H2,32).DRAW(bow));
             // TV.DO(() => TV.T(H2,32).DRAW(dreamcatcher));
+            TV.DO(() => TV.T(H2,32).DRAW(teepee, true));
         });
     }
     // END DEBUGGING
