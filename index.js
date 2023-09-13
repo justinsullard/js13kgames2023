@@ -149,6 +149,12 @@ const ONCE = (e, f) => {
     ON(e, p);
 };
 
+// BEGIN DEBUGGING
+let DEBUG = false;
+ON("key-i",()=>DEBUG=!DEBUG);
+// END DEBUGGING
+
+
 // MUSIC ========================================
 let DJ = 0;
 const SONG = (n = 0, o = 0, b = 16) => { // noteCount, offsetNotes, baseNotes
@@ -442,7 +448,10 @@ const SUN = (R = 32, F = "#840") => {
     return {
         R: R * 1.5,
         D: R * 3,
-        get IMG() { return sc.CVS; }
+        get IMG() { return sc.CVS; },
+        DRAW(tv) {
+            tv.IMG(sc.CVS,0,0,R*2,R*2)
+        }
     };
 };
 
@@ -556,7 +565,7 @@ MAKE("ACT", [
     ["d", 0],
     ["SPEEDLIMIT", 2],
     ["INVENTORY", []],
-    ["MAXINVENTORY", 1],
+    ["MAXINVENTORY", 0],
     ["DRUMS", []],
     ["LASTSTEP", 0],
     ["PROJECTED",[0,0,0]],
@@ -678,9 +687,13 @@ const SHELL = ({ DIAM = 512, DRUMS = [] } = {}) => {
         r = DIAM / 12,
         S = {
             R, DIAM, DRUMS,
-            DRAW: (tv = sc) => {
+            DRAW: (tv = sc, i) => {
                 tv.DO(() => {
                     let z = r * 5.6;
+                    if (i) {
+                        tv.IMG(sc.CVS,0,0,64,64);
+                        return;
+                    }
                     if (tv === sc) {
                         tv.E().center();
                     }    
@@ -764,9 +777,14 @@ MAKE("PERSON",[
         }
         return PERSONPATH.get(k);
     },
-    DRAW(tv, cycle = bar % 0.5 * 2, prep = true) {
+    DRAW(tv, i) {
+        const cycle = bar % 0.5 * 2;
         tv.DO(() => {
-            if (prep) { this.PREP(tv); }
+            if (i) {
+                tv.T(32,64).S(16,16);
+            } else {
+                this.PREP(tv);
+            }
             const STEPPED = this.STEPPED() % 0.5;
             let CYCLE = STEPPED ? OF(STEPPED % 0.5, 0.5) : 1 - cycle;
             let { SPEED } = this;
@@ -906,7 +924,7 @@ MAKE("PLANT",[
         return this;
     },
     CAN(e) {
-        return this.AGE > 2 && this.DIFF(e).LEN() <= 4;
+        return this.AGE > 2 && this.DIFF(e).LEN() <= 4 && e.INVENTORY.length < e.MAXINVENTORY;
     },
     UPDATE(_) {
         this.NEXT = this.NEXT || 4 + rand.INT(284);
@@ -918,9 +936,13 @@ MAKE("PLANT",[
 },"ENT");
 
 MAKE("DEER", [], {
-    DRAW(tv) {
+    DRAW(tv, i) {
         tv.DO(() => {
-            this.PREP(tv);
+            if (i) {
+                tv.T(32,64).S(16,16);
+            } else {
+                this.PREP(tv);
+            }
             tv.S(this.DIRECTION, 1);
             let spd = this.SPEED;
             let [cx, cy] = spd ? WALK(this.CYCLE()) : [0, 0];
@@ -967,9 +989,13 @@ MAKE("DEER", [], {
 }, "ANIMAL");
 
 MAKE("BISON", [], {
-    DRAW(tv, h, lightx, lighty) {
+    DRAW(tv, i) {
         tv.DO(() => {
-            this.PREP(tv);
+            if (i) {
+                tv.T(32,64).S(16,16);
+            } else {
+                this.PREP(tv);
+            }
             tv.S(this.DIRECTION, 1);
             let spd = this.SPEED;
             let [cx, cy] = spd ? WALK(this.CYCLE()) : [0, 0];
@@ -1022,9 +1048,10 @@ MAKE("MOON", [
     ["COLOR","#ccf"],
     ["STROKE","#ccf4"]
 ], {
-    DRAW(tv) {
+    DRAW(tv, i) {
         tv.DO(() => {
             const { PHASE, RADIUS } = this;
+            if (i) { tv.T(RADIUS,RADIUS)}
             const r = RADIUS-1;
             const C = RADIUS*1.3
             if (PHASE) {
@@ -1116,9 +1143,12 @@ MAKE("PINE",[
         });
         return this;
     },
-    // CAN(e) {
-    //     return this.AGE > 2 && this.DIFF(e).LEN() <= 4; //TODO: Add drum requirement
-    // },
+    CAN(e) {
+        return this.AGE > 2
+            && this.DIFF(e).LEN() <= 4
+            && e.DRUMS?.find(d=>IS(d.ICON,HATCHET))
+            && e.INVENTORY.length < e.MAXINVENTORY;
+    },
     INTERACT(e) {
         e.INVENTORY.push(new WOOD());
         this.GENERATE(this.AGE -= 1);
@@ -1186,7 +1216,7 @@ MAKE("FLOWER",[
         return this;
     },
     CAN(e) {
-        return this.BLOOM && this.DIFF(e).LEN() <= 2;
+        return this.BLOOM && this.DIFF(e).LEN() <= 2 && e.INVENTORY.length < e.MAXINVENTORY;
     },
     INTERACT(e) {
         // console.log("FLOWER INTERACT");
@@ -1220,7 +1250,7 @@ MAKE("GRASS",[
         return this;
     },
     INTERACT(e) {
-        e.INVENTORY.push(PUT(new GRASS().GENERATE(1),{AGE:1}));
+        e.INVENTORY.push(PUT(new GRASS().GENERATE(1),{AGE:1})) ;
         this.GENERATE(this.AGE -= 1);
         EMIT("BEAT");
     }
@@ -1241,7 +1271,7 @@ MAKE("BASKET", [["TV",null]],{
                 .L(32,16).L(32,12) // inside turn of left handle
                 .L(...rand.XY(16,12)).L(...rand.XY(16,32))//outside turn of left handle
                 .C()
-                .F(rand.HWB(42,2, 26,2, 43,4))
+                .F(rand.HWB(42,2, 16,2, 53,4))
                 .P()
                 .M(...rand.XY(14,38)).L(...rand.XY(28,58))
                 .M(...rand.XY(36,38)).L(...rand.XY(50,58))
@@ -1291,11 +1321,11 @@ MAKE("CORN", [
 ],{
     GENERATE(_){
         this.SEED = rand.DO(this.SEED,() => {
+            const f = rand.SIGN();
             const a = min(this.MAX, this.AGE = _ || this.AGE || rand()*3+1);
             this.EARS.length = 0;
             this.EARS.push(...STRIPE(max(0,FLOOR(a - 1)), _=>new EAR()));
             const h = min(a,3) * 2;
-            const f = rand.SIGN();
             this.WIDTH = 4;
             this.HEIGHT = ROUND(h+2);
             this.TV = TILE(this.WIDTH*PXL*4, this.HEIGHT*PXL*4).DO(tv=>{
@@ -1306,7 +1336,7 @@ MAKE("CORN", [
                         if (i === 0) {
                             tv.T(0,-h).R(rand.BIAS()/8);
                         } else {
-                            tv.T(0,-h/2+rand.BIAS()/2).R(f*SIGN(1.5-i)*PIZZA[5]);
+                            tv.T(0,-h/2+rand.BIAS()/2).R(f*SIGN(1.5-i)*PIZZA[7]);
                         }
                         const e = this.EARS[i];
                         if (e) {
@@ -1427,10 +1457,43 @@ MAKE("ROCK",[
     }
 }, "ENT");
 
-MAKE("MEDICINE", [["TV",null]],{
-    DRAW(tv) {
-    }
-},"ENT");
+// MAKE("MEDICINE", [
+//     ["COLOR", () => rand.HWB(123,6, 20,4, 30,4)],
+//     ["MAX",4]
+// ],{
+//     GENERATE(_){
+//         this.SEED = rand.DO(this.SEED,() => {
+//             const a = min(this.MAX, this.AGE = _ || this.AGE || rand()*3+1);
+//             const h = a * 2;
+//             const l = ceil(a);
+//             this.WIDTH = 4;
+//             this.HEIGHT = ceil(h);
+//             const p = PIZZA[l*3];
+//             this.TV = TILE(this.WIDTH*PXL*4, this.HEIGHT*PXL*4).DO(tv=>{
+//                 tv.S(PXL,PXL).T(2,this.HEIGHT);
+//                 STRIPE(l, i=>{
+//                     const y = -i/l*2;
+//                     const x = (l+(l - i))/l*2;
+//                     EACH(i ? [-p*i, p*i] : [0], r=>tv.DO(_=>{
+//                         tv.R(r).P()
+//                         .M(0,0)
+//                         .L(-x,-1+y/2).L(-2*x,(-h+y)/2)
+//                         .L(0,-h+y)
+//                         .L(x,(-h+y)/2).L(2*x,-1+y/2)
+//                         .L(0,0)
+//                     }));
+//                 });
+//                 tv.F(this.COLOR);
+//             });
+//         });
+//         return this;
+//     },
+//     INTERACT(e) {
+//         e.INVENTORY.push(new MEDICINE().GENERATE(1));
+//         this.GENERATE(this.AGE -= 1);
+//         EMIT("BEAT");
+//     }
+// },"PLANT");
 
 MAKE("HATCHET", [["TV",null]],{
     DRAW(tv) {
@@ -1552,11 +1615,37 @@ MAKE("BOAT", [["TV",null]],{
 },"ENT");
 
 MAKE("DRUM", [
+    ["TV",null],
     ["ICON",null],
-    ["OK",[]],
-    ["DO",()=>{}]
+    ["NEEDS",[]],
+    ["COLOR",() => rand.HWB(46,3, 30,5, 40,4)]
 ], {
-
+    GENERATE(i) {
+        try {
+            this.ICON = new i();
+        } catch (e) {
+            this.ICON = i();
+        }
+        this.TV = TILE(256).DO(tv=>{
+            tv.P().A(128,128,128)
+            .F(tv.GR(128,112,112, 128, 128, 128, [this.COLOR,rand.HWB(46,3, 20,5, 50,4)]))
+            try {
+                tv.T(64,48).S(2,2).DRAW(this.ICON, true);
+            } catch (e) {
+                console.error("Error drawing drum", i, this.ICON)
+            }
+        });
+        return this;
+    },
+    DRAW(tv, i) {
+        if (i) {
+            tv.IMG(this.TV.CVS, 0, 0, 64,64)
+        } else {
+            tv.IMG(this.TV.CVS,-1, -3, 2, 2);
+        }
+        // tv.IMG(this.TV.CVS,0,0,64,64);
+        return tv;
+    }
 }, "ENT");
 
 const FLAME = new Map();
@@ -1567,6 +1656,7 @@ MAKE("FIRE",[
 ], {
     DRAW(tv, c) {
         tv.DO(() => {
+            const cant = !this.CAN(PLAYER);
             this.PREP(tv);
             const C = FIX((this.O + bar % 0.5 * 2)%1, 64);
             // tv.DO(() => tv.T(-1.5,-2.125).S(1/32,1/32).DRAW(this.LOG));
@@ -1584,9 +1674,17 @@ MAKE("FIRE",[
                     .F(tv.GR(0,-1.25,0.5+hy/8,  0,0,4-hy/4, ["#ff0a", "#e206", "#d004"]));
                 FLAME.set(C,s);
             }
-            tv.IMG(FLAME.get(C).CVS, -1,-4,2,4)
+            if (!this.DRUM || cant) {
+                tv.IMG(FLAME.get(C).CVS, -1,-4,2,4)
+            }
+            if (this.DRUM) {
+                if (cant) {
+                    tv.O(0.5).T(ESIN(bar),-5);                    
+                }
+                this.DRUM.DRAW(tv);
+            }
         });
-    },
+},
     CAN(e) {
         return !!(
             !this.AREA[0].ENTITIES.filter(x=>IS(x,PERSON)).find(x=>!x.READY)
@@ -1605,6 +1703,7 @@ MAKE("FIRE",[
         }
     }
 }, "ENT")
+
 // Trick roadroller and my build to generate the other classes first
 const ww = MAKE("WORLD", [
     ["SEED", 13],
@@ -1635,17 +1734,17 @@ const ww = MAKE("WORLD", [
         // END DEBUGGING
         const [sd, td] = rand.SHUFFLE([BASKET, HATCHET]);
         const [ld, rd] = rand.SHUFFLE([
-            rand.SHUFFLE([SPEAR, BISON, CORN]),
+            rand.SHUFFLE([SPEAR, BISON, EAR]), // EAR vs CORN
             rand.SHUFFLE([BOW, DEER, TEEPEE])
         ]);
         this.DRUMS = [
             PERSON,
             sd,
             ...ld,
-            BOAT,
+            SUN,
             ...rd,
             td,
-            ...rand.SHUFFLE([MEDICINE, DREAMCATCHER]),
+            ...rand.SHUFFLE([MOON, DREAMCATCHER]),
             SHELL
         ];
 
@@ -1713,7 +1812,7 @@ const ww = MAKE("WORLD", [
     
             }
         );
-        const CORNVILLAGE = this.VILLAGES[this.DRUMS.indexOf(CORN)];
+        const CORNVILLAGE = this.VILLAGES[this.DRUMS.indexOf(EAR)];
         const CORNFIELD = this.FIELDS.reduce((r,f)=> r
             ? (r.DIFF(CORNVILLAGE).LEN() > f.DIFF(CORNVILLAGE).LEN() && f.ENTITIES.length === 0 ? f : r)
             : f, null);
@@ -1723,6 +1822,13 @@ const ww = MAKE("WORLD", [
             CORNFIELD.LANDSCAPE.push(p);
             this.LANDSCAPE.push(p);
         })
+        // I was too slow so had to skip the boat and just put bridges in for now
+        this.FIELDS.push(
+            new AREA().GENERATE(8).MOVE([0,-62,0]),
+            new AREA().GENERATE(8).MOVE([0,-16,0]),
+            new AREA().GENERATE(8).MOVE([0,16,0])
+            // new AREA().GENERATE(8).MOVE([0,62,0])
+        );
 
         this.AREAS = [...this.MOONS, ...this.VILLAGES, ...this.FIELDS]; //.sort(SCREENSORT);
         EACH(this.MOONS, (x, i) => {
@@ -1744,6 +1850,7 @@ const ww = MAKE("WORLD", [
             x.LANDSCAPE.push(f);
             this.LANDSCAPE.push(f);
         });
+        this.DRUMS = MAP(this.DRUMS,i=>new DRUM().GENERATE(i));
         EACH(this.VILLAGES, (x, i) => {
             // BEGIN DEBUGGING
             x.NAME = `drum ${i}`;
@@ -1810,7 +1917,13 @@ const ww = MAKE("WORLD", [
         const { FLOOR } = this;
         FLOOR
             // Dark outer ring
-            .P().A(128,128,108).W("#202",16).C()
+            .P().A(128,128,108).W("#202",16)
+            // Dark inner ring
+            .P().A(128,164,80)
+            .M(128,128).L(25,150).L(25,80)
+            .L(55,50).L(128,30).L(206,50)
+            .L(231,80).L(231,150).L(128,128)
+            .F(this.FLOOR.GR(128,164,23, 128,164,28,["#fff2","#2026","#202"]))
             // The Water
             .P().A(128,102,40)
             .F(this.FLOOR.GR(128, 128, 32, 128, 128, 256, ["hwb(250deg 14% 57%)", "hwb(220deg 65% 12%)"]))
@@ -1824,7 +1937,7 @@ const ww = MAKE("WORLD", [
         //     const b = new ENT(0,56).ROT(PIZZA[16]*(i*2+10)).MOVE([128,128,128]);
         //     FLOOR.M(a.x,a.y).A(a.x,a.y,16).M(b.x,b.y).A(b.x,b.y,16);
         // });
-        EACH(this.FIELDS,a=>FLOOR.M(a.x+128,a.y+128).A(a.x+128,a.y+128,16));
+        EACH(this.FIELDS,a=>FLOOR.M(a.x+128,a.y+128).A(a.x+128,a.y+128,a.RADIUS));
         FLOOR.F(FLOOR.GR(128,128,48,128,108,192,["#141","#263"]))
 
             // Drop the map down as a baseline
@@ -1943,9 +2056,6 @@ let world = new WORLD().GENERATE(13);
 let CAMERA = new ENT(PLAYER.x, PLAYER.y + CAMERABACKP, PLAYER.z + CAMERAUPP);
 
 // BEGIN DEBUGGING
-let DEBUG = false;
-ON("key-i",()=>DEBUG=!DEBUG);
-
 // const corn = new CORN();
 // const teepee = new TEEPEE();
 // const dreamcatcher = new DREAMCATCHER();
@@ -1954,8 +2064,8 @@ ON("key-i",()=>DEBUG=!DEBUG);
 // const hatchet = new HATCHET();
 // const basket = new BASKET();
 // const rock = new ROCK();
+const person = new PERSON();person.UPDATE(0);
 // END DEBUGGING
-
 
 const TICK = (d) => {
     const t = d / 1000;
@@ -2138,6 +2248,7 @@ const MAIN = (t = 0) => {
             // TV.DO(() => TV.T(H2,32).DRAW(teepee, true));
             // TV.DO(() => TV.T(H2,32).DRAW(corn, true));
         });
+        TV.DO(() => TV.T(H2,128).DRAW(person, true));
     }
     // END DEBUGGING
     requestAnimationFrame(MAIN);
