@@ -1,4 +1,5 @@
 // GLOBAL VARIABLES (WHICH CAN BE CHANGED POTENTIALLY)
+const KEY = "js13kgames2023-13drums";
 let now = 0;
 let BPM = 500;
 // 288 BEATS (576 TICKS). This is effectively 12 beats (24 ticks) per hour for a 24 hour clock.
@@ -686,6 +687,7 @@ const SHELL = ({ DIAM = 512, DRUMS = [] } = {}) => {
         R = DIAM / 2,
         r = DIAM / 12,
         S = {
+            SHELL:1,
             R, DIAM, DRUMS,
             DRAW: (tv = sc, i) => {
                 tv.DO(() => {
@@ -744,7 +746,7 @@ MAKE("PERSON",[
     ["STROKE", () => `hwb(${ROUND(30 + rand.BIAS()*2 - 2)} 0% ${ROUND(67 + rand()*4)}%)`],
     ["READY", 0],
     ["NEEDS", []],
-    ["WANTS", []]
+    ["WANTS", []],
 ],{
     PATH(s, c, d, o, m) {
         // const [S, C, D, O, M] = [FIX(s, 8), FIX(c, 64), d, o, FIX(m[0], 8)];
@@ -817,8 +819,11 @@ MAKE("PERSON",[
                     tv.IMG(shell.IMG, -1, -1, 2, 2);
                 });
             }
-            if (MOUSE.TARGET === this) {
-                // RENDER OUR NEEDS
+            if (this.INVENTORY.length) {
+                tv.DO(_=>{
+                    tv.T(-1,-7).S(1/32,1/32).P().RR(0,0,64,64,8).C().F("#fff2")
+                        .DRAW(this.INVENTORY[0], true);
+                })
             }
             // BEGIN DEBUGGING
             if (DEBUG) {
@@ -857,11 +862,19 @@ MAKE("PERSON",[
             && this.DIFF(e).LEN() <= 4
             && (
                 (!this.READY && !this.NEEDS.length) // Ready to go to the drum circle
-                || this.NEEDS.find(x=>PLAYER.INVENTORY.find(y=>IS(y,x))) // Needs something the player has
-                || (this.READY && this.WANTS.find(x=>PLAYER.INVENTORY.find(y=>IS(y,x)))) // Is ready and wants something the player has
+                || this.NEEDS.find(x=>e.INVENTORY.find(y=>IS(y,x))) // Needs something the player has
+                || (this.READY && this.WANTS.find(x=>e.INVENTORY.find(y=>IS(y,x)))) // Is ready and wants something the player has
             );
     },
     INTERACT(e) {
+        const NEEDS = MAP(this.NEEDS, x=>e.INVENTORY.find(y=>IS(y,x))).filter(x=>x);
+        console.log("Interaction needs", NEEDS)
+        if (NEEDS.length) {
+            // const d = this.NEEDS.filter(x=>NEEDS.find(y=>IS(y,x)));
+            e.INVENTORY = e.INVENTORY.filter(x=>!NEEDS.includes(x));
+            this.INVENTORY = this.INVENTORY.filter(x=>!NEEDS.includes(x));
+            this.NEEDS = this.NEEDS.filter(x=>!NEEDS.find(y=>IS(y,x)));
+        }
         if (!this.READY && !this.NEEDS.length) {
             EMIT("AAH");
             this.READY = 1;
@@ -870,13 +883,6 @@ MAKE("PERSON",[
             const l = LEN(m);
             this.SCHEDULE.push(PUT(new TASK(), { TCK: TCK + 1 + rand.INT(8), TARGET: MOVE(SCALE(m, (l-2)/l), this) }));
         }
-        const NEEDS = MAP(this.NEEDS,x=>e.INVENTORY.find(y=>IS(y,x))).filter(x=>x);
-        if (NEEDS.LENGTH) {
-            const d = this.NEEDS.filter(x=>NEEDS.find(y=>IS(y,x)));
-            e.INVENTORY = e.INVENTORY.filter(x=>!NEEDS.includes(x));
-            this.NEEDS = this.NEEDS.filter(x=>!d.includes(x));
-        }
-        // Add trade
     }
 },"ACT");
 
@@ -919,7 +925,7 @@ MAKE("PLANT",[
                 tv.IMG(this.TV.CVS,-this.WIDTH/2, -this.HEIGHT, this.WIDTH * 4, this.HEIGHT * 4);
             });
         } else {
-            tv.IMG(this.TV.CVS,0,0,64,64);
+            tv.IMG(this.TV.CVS,0,0,64*4,64*4);
         }
         return this;
     },
@@ -986,6 +992,18 @@ MAKE("DEER", [], {
 
         });
     },
+    CAN(e) {
+        return this.DIFF(e).LEN() <= 4
+            && e.DRUMS?.find(d=>IS(d.ICON,SPEAR))
+            && e.INVENTORY.length < e.MAXINVENTORY;
+    },
+    INTERACT(e) {
+        // TODO: Remove from the grid and schedule respawn
+        this.SCHEDULE.length=0;
+        this.ALIVE = 0;
+        e.INVENTORY.push(new DEER());
+        EMIT("beat");
+    },
 }, "ANIMAL");
 
 MAKE("BISON", [], {
@@ -1039,7 +1057,19 @@ MAKE("BISON", [], {
                 .W("#620", 0.125);
 
         });
-    }
+    },
+    CAN(e) {
+        return this.DIFF(e).LEN() <= 4
+            && e.DRUMS?.find(d=>IS(d.ICON,SPEAR))
+            && e.INVENTORY.length < e.MAXINVENTORY;
+    },
+    INTERACT(e) {
+        // TODO: Remove from the grid and schedule respawn
+        this.SCHEDULE.length=0;
+        this.ALIVE = 0;
+        e.INVENTORY.push(new BISON());
+        EMIT("beat");
+    },
 }, "ANIMAL");
 
 MAKE("MOON", [
@@ -1443,7 +1473,7 @@ MAKE("ROCK",[
         return this;
     },
     CAN(e) {
-        return this.DIFF(e).LEN() <= 4; // TODO: Inventory check first?
+        return this.DIFF(e).LEN() <= 4 && e.INVENTORY.length < e.MAXINVENTORY; // TODO: Inventory check first?
     },
     INTERACT(e) {
         e.INVENTORY.push(this);
@@ -1609,10 +1639,12 @@ MAKE("DREAMCATCHER", [["TV",null]],{
     }
 },"ENT");
 
-MAKE("BOAT", [["TV",null]],{
-    DRAW(tv) {
-    }
-},"ENT");
+// MAKE("BOAT", [["TV",null]],{
+//     DRAW(tv) {
+//     }
+// },"ENT");
+
+
 
 MAKE("DRUM", [
     ["TV",null],
@@ -1621,11 +1653,7 @@ MAKE("DRUM", [
     ["COLOR",() => rand.HWB(46,3, 30,5, 40,4)]
 ], {
     GENERATE(i) {
-        try {
-            this.ICON = new i();
-        } catch (e) {
-            this.ICON = i();
-        }
+        this.ICON = i === SHELL || i === SUN ? i() : new i();
         this.TV = TILE(256).DO(tv=>{
             tv.P().A(128,128,128)
             .F(tv.GR(128,112,112, 128, 128, 128, [this.COLOR,rand.HWB(46,3, 20,5, 50,4)]))
@@ -1635,6 +1663,41 @@ MAKE("DRUM", [
                 console.error("Error drawing drum", i, this.ICON)
             }
         });
+        let n = [];
+        switch(i) {
+            case BASKET:
+                n=[GRASS,GRASS,GRASS];
+                break;
+            case HATCHET:
+                n=[STICK,GRASS,ROCK];
+                break;
+            case SPEAR:
+                n=[WOOD,GRASS,ROCK];
+                break;
+            case BOW:
+                n=[WOOD,STICK,ROCK]
+                break;
+            case TEEPEE:
+                n=[DEER,BISON,WOOD];
+                break;
+            case DREAMCATCHER:
+                n=[STICK,GRASS,FLOWER];
+                break;
+            case SUN:
+                n=[STICK,GRASS,WOOD];
+            case MOON:
+                n=[FLOWER,FLOWER,FLOWER];
+                break;
+            case EAR:
+                n=[EAR,EAR,EAR];
+                break;
+            case DEER:
+                n=[DEER,DEER,DEER];
+                break;
+            case BISON:
+                n=[BISON,BISON,BISON];
+        }
+        this.NEEDS = rand.SHUFFLE(n);
         return this;
     },
     DRAW(tv, i) {
@@ -1645,6 +1708,17 @@ MAKE("DRUM", [
         }
         // tv.IMG(this.TV.CVS,0,0,64,64);
         return tv;
+    },
+    DO() {
+        const i = this.ICON
+        if (i.SHELL) {
+            // DO THE SPECIAL SAVE STUFF
+            localStorage.setItem(KEY, true);
+        } else if (IS(i, PERSON)) {
+            PLAYER.MAXINVENTORY = 1;
+        } else if (IS(i, BASKET)) {
+            PLAYER.MAXINVENTORY = 3;
+        }
     }
 }, "ENT");
 
@@ -1679,7 +1753,7 @@ MAKE("FIRE",[
             }
             if (this.DRUM) {
                 if (cant) {
-                    tv.O(0.5).T(ESIN(bar),-5);                    
+                    tv.O(0.5).T(ESIN(C)/2,-5);                    
                 }
                 this.DRUM.DRAW(tv);
             }
@@ -1689,6 +1763,7 @@ MAKE("FIRE",[
         return !!(
             !this.AREA[0].ENTITIES.filter(x=>IS(x,PERSON)).find(x=>!x.READY)
             && this.DRUM
+            && (!this.DRUM.ICON.SHELL || this.DRUM.ICON.SHELL && e.DRUMS.length === 12)
         ); // Add trash interaction technique
     },
     INTERACT(e) {
@@ -1696,10 +1771,13 @@ MAKE("FIRE",[
         if (DRUM) {
             PLAYER.DRUMS.push(DRUM);
             PLAYER.shell.ADD(DRUM);
+            DRUM.DO();
             DJ.SING(MAP(PLAYER.shell.DRUMS,(x,i)=>x ? i+1 : null).filter(x=>x));
             this.DRUM = 0;
             EMIT("AAH");
             EMIT("BEAT");
+        } else if (e.INVENTORY) {
+            e.INVENTORY.shift();
         }
     }
 }, "ENT")
@@ -1871,6 +1949,13 @@ const ww = MAKE("WORLD", [
                     // x.COPY().MOVE(new ENT(0, 6 + rand.INT(6), 0).ROT(PIZZA[3]*(i+rand.BIAS()/8)))
                     new ENT(0, o, 0).ROT(r).MOVE(x)
                 );
+                if (f.DRUM.NEEDS.length) {
+                    const n = f.DRUM.NEEDS.shift();
+                    v.NEEDS.push(n);
+                    const i = new n();
+                    i.GENERATE?.(1);
+                    v.INVENTORY.push(i);
+                }
                 const t = new TEEPEE().MOVE(
                     new ENT(0, o+2, 0).ROT(r+PIZZA[32]*rand.SIGN()).MOVE(x)
                 );
@@ -2044,7 +2129,7 @@ let shell = SHELL();
 let PLAYER = PUT(new PERSON(), { x: 0, y: 104, z: 0, shell, ORIENTATION: -1, COLOR:"#840", STROKE:"#620" });
 let MOUSE = new ENT();
 MOUSE.PATH = PATH().M(-2,-2).L(2,2).L(-2,2).L(2,-2).C();
-let world = new WORLD().GENERATE(13);
+let world = new WORLD().GENERATE(localStorage.getItem(KEY) ? Date.now() : 13);
 // let world = new WORLD().GENERATE(Date.now());
 
 // let ground = STRIPE(11, y => new AREA().MOVE(y ? [0, -64, (1 - EHSIN(OF(y-1,9))) * 32 - 16] : [0, 0, 0]).ROT((y-0.5) * PIZZA[10]));
@@ -2199,12 +2284,15 @@ const MAIN = (t = 0) => {
         });
     }
     // INVENTORY DISPLAY
-    const l = PLAYER.INVENTORY.length;
-    EACH(PLAYER.INVENTORY,(e,i)=>{
+    const l = PLAYER.MAXINVENTORY;
+    STRIPE(l, i=>TV.DO(_=>{
+        // console.log(`Rendering inventory ${i} of ${l}`);
+        const e = PLAYER.INVENTORY[i];
         const x = (TV.W1 - 128) / (l + 1) * (i+1) + 32;
-        const y = TV.H1 - 128;
-        TV.DO(tv=>e.DRAW(tv.T(x,y).P().RR(0,0,64,64,4).C().F("#fff4"), true));
-    });
+        const y = max(TV.H3*2, TV.H1 - 128);
+        TV.T(x,y).P().RR(0,0,64,64,4).C().F("#fff4");
+        if (e) { e.DRAW(TV, true); }
+    }));
     // CLICK TO BEGIN
     if (PAUSED) {
         TV.ctx.fillStyle = "#0f0";
@@ -2218,6 +2306,20 @@ const MAIN = (t = 0) => {
             "mouse = interact",
             !DJ ? "click to play" : "- paused -"
         ], ((x, i) => TV.ctx.fillText(x, TV.W2 - TV.ctx.measureText(x).width/2, (i + 1) * 32)));
+        EACH([
+            "Use the fire to empty inventory.",
+            "Drums can unlock new interactions",
+            "Help each villager to unlock drums.",
+        ], ((x, i) => TV.ctx.fillText(x, TV.W2 - TV.ctx.measureText(x).width/2, TV.H1 + (i + 1) * -32)));
+    }
+    if (PLAYER.DRUMS.length === 13) {
+        TV.ctx.fillStyle = "#0f0";
+        TV.ctx.font = '32px monospace';
+        EACH([
+            "Refresh to create a new world",
+            "You collected all 13 drums.",
+            "Congratulations!",
+        ], ((x, i) => TV.ctx.fillText(x, TV.W2 - TV.ctx.measureText(x).width/2, TV.H1 + (i + 1) * -32)));
     }
     // BEGIN DEBUGGING
     if (DEBUG) {
