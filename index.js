@@ -819,7 +819,7 @@ MAKE("PERSON",[
                     tv.IMG(shell.IMG, -1, -1, 2, 2);
                 });
             }
-            if (this.INVENTORY.length) {
+            if (this.INVENTORY.length && this !== PLAYER) {
                 tv.DO(_=>{
                     tv.T(-1,-7).S(1/32,1/32).P().RR(0,0,64,64,8).C().F("#fff2")
                         .DRAW(this.INVENTORY[0], true);
@@ -872,8 +872,8 @@ MAKE("PERSON",[
         if (NEEDS.length) {
             // const d = this.NEEDS.filter(x=>NEEDS.find(y=>IS(y,x)));
             e.INVENTORY = e.INVENTORY.filter(x=>!NEEDS.includes(x));
-            this.INVENTORY = this.INVENTORY.filter(x=>!NEEDS.includes(x));
             this.NEEDS = this.NEEDS.filter(x=>!NEEDS.find(y=>IS(y,x)));
+            this.INVENTORY = this.INVENTORY.filter(x=>this.NEEDS.find(y=>IS(x,y)));
         }
         if (!this.READY && !this.NEEDS.length) {
             EMIT("AAH");
